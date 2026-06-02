@@ -1,0 +1,13 @@
+// vitest.config.ts
+import { defineConfig } from "file:///sessions/gallant-pensive-ptolemy/mnt/Queen's%20Garden%20Online/tomsgarden/node_modules/vitest/dist/config.js";
+var vitest_config_default = defineConfig({
+  test: {
+    include: ["**/*.test.ts", "**/*.test.tsx"],
+    exclude: ["**/node_modules/**", "**/dist/**", "shared/rules/**"],
+    environment: "node"
+  }
+});
+export {
+  vitest_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZXN0LmNvbmZpZy50cyJdLAogICJzb3VyY2VzQ29udGVudCI6IFsiY29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2Rpcm5hbWUgPSBcIi9zZXNzaW9ucy9nYWxsYW50LXBlbnNpdmUtcHRvbGVteS9tbnQvUXVlZW4ncyBHYXJkZW4gT25saW5lL3RvbXNnYXJkZW5cIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfZmlsZW5hbWUgPSBcIi9zZXNzaW9ucy9nYWxsYW50LXBlbnNpdmUtcHRvbGVteS9tbnQvUXVlZW4ncyBHYXJkZW4gT25saW5lL3RvbXNnYXJkZW4vdml0ZXN0LmNvbmZpZy50c1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9pbXBvcnRfbWV0YV91cmwgPSBcImZpbGU6Ly8vc2Vzc2lvbnMvZ2FsbGFudC1wZW5zaXZlLXB0b2xlbXkvbW50L1F1ZWVuJ3MlMjBHYXJkZW4lMjBPbmxpbmUvdG9tc2dhcmRlbi92aXRlc3QuY29uZmlnLnRzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSAndml0ZXN0L2NvbmZpZyc7XG5cbmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7XG4gIHRlc3Q6IHtcbiAgICBpbmNsdWRlOiBbJyoqLyoudGVzdC50cycsICcqKi8qLnRlc3QudHN4J10sXG4gICAgZXhjbHVkZTogWycqKi9ub2RlX21vZHVsZXMvKionLCAnKiovZGlzdC8qKicsICdzaGFyZWQvcnVsZXMvKionXSxcbiAgICBlbnZpcm9ubWVudDogJ25vZGUnLFxuICB9LFxufSk7XG4iXSwKICAibWFwcGluZ3MiOiAiO0FBQTRZLFNBQVMsb0JBQW9CO0FBRXphLElBQU8sd0JBQVEsYUFBYTtBQUFBLEVBQzFCLE1BQU07QUFBQSxJQUNKLFNBQVMsQ0FBQyxnQkFBZ0IsZUFBZTtBQUFBLElBQ3pDLFNBQVMsQ0FBQyxzQkFBc0IsY0FBYyxpQkFBaUI7QUFBQSxJQUMvRCxhQUFhO0FBQUEsRUFDZjtBQUNGLENBQUM7IiwKICAibmFtZXMiOiBbXQp9Cg==

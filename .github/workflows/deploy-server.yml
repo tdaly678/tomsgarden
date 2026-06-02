@@ -1,0 +1,29 @@
+name: Deploy PartyKit server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # PartyKit deploys to Cloudflare's edge using a non-interactive token.
+      # Create one with `npx partykit token generate` and store it in the
+      # repo secret PARTYKIT_TOKEN (see README).
+      - name: Deploy to PartyKit
+        run: npm run deploy --workspace @tomsgarden/server
+        env:
+          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
+          PARTYKIT_LOGIN: github

@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# PartyKit
+.partykit/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vite/Vitest temp config artifacts
+vitest.config.ts.timestamp-*.mjs
+vite.config.ts.timestamp-*.mjs
+
+# Stray sandbox git-recovery dir (safe to delete on host: rm -rf .git_old)
+.git_old/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

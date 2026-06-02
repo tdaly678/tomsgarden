@@ -1,0 +1,31 @@
+{
+  "name": "tomsgarden",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tomsgarden — online real-time multiplayer board game (Azul: Queen's Garden clone).",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev:client": "npm run dev --workspace client",
+    "dev:server": "npm run dev --workspace server",
+    "build": "npm run build --workspace client",
+    "typecheck": "tsc --build --verbose",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "@typescript-eslint/eslint-plugin": "8.18.2",
+    "@typescript-eslint/parser": "8.18.2",
+    "eslint": "9.17.0",
+    "eslint-config-prettier": "9.1.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
+  }
+}

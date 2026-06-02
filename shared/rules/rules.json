@@ -1,0 +1,181 @@
+{
+  "_meta": {
+    "title": "Tomsgarden game rules specification",
+    "_notes": "Single source of truth for all build agents. Mechanics are identical to Azul: Queen's Garden (by Michael Kiesling, Plan B Games). Numbers are taken from the official EN rulebook to preserve balance. Component NAMES used here are the original Queen's Garden terms for clarity; see rename-map.json for the Tomsgarden public-facing names. Game mechanics are not copyrightable; only specific names and art are. Do NOT ship trademarked names or art.",
+    "sourceOfNumbers": "https://cdn.svc.asmodee.net/production-nextmove/uploads/sites/4/2024/06/EN-AZUL-QG-Rulebook_low-res.pdf"
+  },
+
+  "players": {
+    "min": 2,
+    "max": 4,
+    "supported": [2, 3, 4]
+  },
+
+  "rounds": {
+    "count": 4,
+    "_notes": "Each round = Phase 1 (player actions until all pass), Phase 2 (scoring via rotary wheel), Phase 3 (prepare next round; skipped after round 4, replaced by final scoring)."
+  },
+
+  "tileSet": {
+    "totalColoredTiles": 108,
+    "patterns": 6,
+    "colors": 6,
+    "_notes": "6 patterns are distributed evenly across the 6 colors. 108 colored tiles total = 6 patterns x 6 colors x 3 copies each. Each unique pattern+color combination is called a 'hexagon' and exists 3 times among the tiles (jokers are separate/wild).",
+    "copiesPerHexagon": 3,
+    "colorList": ["color1", "color2", "color3", "color4", "color5", "color6"],
+    "patternList": [
+      { "id": "pattern1", "value": 1, "_mnemonic": "tree (cost/points value 1)" },
+      { "id": "pattern2", "value": 2, "_mnemonic": "bird (2 wings)" },
+      { "id": "pattern3", "value": 3, "_mnemonic": "butterfly (3 butterflies in art)" },
+      { "id": "pattern4", "value": 4, "_mnemonic": "flower (4 petals)" },
+      { "id": "pattern5", "value": 5, "_mnemonic": "value 5" },
+      { "id": "pattern6", "value": 6, "_mnemonic": "value 6" }
+    ],
+    "_patternValueNote": "Each pattern has a single value used BOTH as its placement cost AND as its per-hexagon point value during scoring. tree=1, bird=2, butterfly=3, flower=4, fifth=5, sixth=6.",
+    "jokers": {
+      "perPlayerAtSetup": 3,
+      "supply": "unlimited (substitute if physical supply runs out)",
+      "_notes": "Jokers are wild/grey tiles. They occupy tile-storage spaces. A joker may be used to pay any part of a placement cost EXCEPT it cannot be the hexagon actually placed in the garden. Surrounding a feature awards jokers."
+    }
+  },
+
+  "gardenExpansions": {
+    "total": 36,
+    "_notes": "Garden expansions are small hex tiles bearing a single hexagon (pattern+color) on one of their spaces, plus a pavilion in the center once flipped face up. They are drafted like tiles and can also be placed in the garden to add space.",
+    "spacesProvidedWhenPlaced": [5, 7],
+    "_spacesNote": "Each garden expansion provides 5 or 7 additional tile spaces depending on the piece. A face-down expansion bought from supply provides 7 free spaces.",
+    "stackSizePerRoundByPlayerCount": {
+      "2": 5,
+      "3": 7,
+      "4": 8
+    },
+    "_stackNote": "Shuffle all 36 expansions and build 4 face-down round stacks of this size. Remaining expansions form the supply with the shield/cost token on top."
+  },
+
+  "placementCosts": {
+    "_notes": "Cost to place a tile/expansion equals the VALUE of its pattern. The hexagon being placed COUNTS toward its own cost, so you discard (cost - 1) additional hexagons from storage. All discarded hexagons (including the placed one) must be either all same pattern/different colors OR all same color/different patterns, never two identical hexagons. Jokers may substitute for any of the additional needed hexagons.",
+    "byPattern": {
+      "pattern1": 1,
+      "pattern2": 2,
+      "pattern3": 3,
+      "pattern4": 4,
+      "pattern5": 5,
+      "pattern6": 6
+    },
+    "additionalHexagonsToDiscard": {
+      "pattern1": 0,
+      "pattern2": 1,
+      "pattern3": 2,
+      "pattern4": 3,
+      "pattern5": 4,
+      "pattern6": 5
+    }
+  },
+
+  "storage": {
+    "tileSpaces": 12,
+    "gardenExpansionSpaces": 2,
+    "_notes": "Jokers count against the 12 tile spaces. You may not perform an acquire that would exceed available space."
+  },
+
+  "gardenBoard": {
+    "layout": "hexagonal",
+    "fountainBoard": {
+      "hexCount": 13,
+      "placedAt": "center of player's garden at setup",
+      "_notes": "The fountain board is the larger central piece (13 hexagons). Garden expansions attach around it to extend the garden."
+    },
+    "_layoutNotes": "The garden grows organically: players attach garden-expansion pieces (5 or 7 hex each) around the central fountain board. Tiles are placed onto hex spaces of the fountain board and expansions. Adjacency is hex-based (up to 6 neighbors per hex).",
+    "placementRules": {
+      "mustBeFreeSpace": true,
+      "adjacencyRule": "A placed tile must either have NO adjacent hexagons, OR share the same pattern OR the same color with at least one adjacent hexagon.",
+      "noIdenticalAdjacent": "You may never create or extend a group such that two identical hexagons (same pattern AND same color) become adjacent.",
+      "_notes": "Garden expansions placed into the garden follow the same adjacency rules as tiles, in the orientation of the player's choice."
+    }
+  },
+
+  "features": {
+    "_notes": "Garden features are decorative elements on the boards. Fully surrounding a feature (all its adjacent hex spaces occupied) immediately awards jokers from the supply, placed into storage; excess jokers (no storage space) are lost.",
+    "types": [
+      { "id": "fountain", "jokersAwardedWhenSurrounded": 3, "_unconfirmed": "Exact joker count per feature type is shown on the player board art, not transcribed numerically in the rulebook text. Verify against board: rulebook states 'receive jokers according to the surrounded element.' Reasonable balanced values flagged here." },
+      { "id": "statue", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "See fountain note. Placeholder value, verify against player-board art." },
+      { "id": "bench", "jokersAwardedWhenSurrounded": 1, "_unconfirmed": "See fountain note. Placeholder value, verify against player-board art." },
+      { "id": "pavilion", "jokersAwardedWhenSurrounded": 1, "scoresEndOfRound": 1, "_unconfirmed": "Joker award on surround is a placeholder; verify against art. The +1 point per visible pavilion at round scoring IS confirmed by rulebook." }
+    ]
+  },
+
+  "jokerRules": {
+    "asPayment": "May replace any additional needed hexagon when paying a placement cost. Cannot be the hexagon placed in the garden.",
+    "fromSurroundingFeatures": "Awarded immediately when a feature is fully surrounded; placed into storage; excess lost.",
+    "atSetup": 3,
+    "_notes": "Jokers are wild for COST purposes only. They are NOT placed onto the garden and do not score patterns/colors during scoring (a joker placed nowhere in garden). At final scoring each remaining joker in storage = +1 point."
+  },
+
+  "roundScoring": {
+    "_notes": "Phase 2. The rotary wheel indicates 3 scored patterns OR colors for the current round. For each hexagon in your garden matching an indicated pattern or color you score that hexagon's pattern VALUE in points. A single hexagon can score twice (once for matching pattern, once for matching color). Then +1 point per visible pavilion.",
+    "wheelScoresThreePatternsOrColorsPerRound": true,
+    "perHexagonPoints": "equals the pattern value of the matching hexagon (tree=1 ... sixth=6)",
+    "pavilionBonusPerRound": 1,
+    "rotaryWheel": {
+      "_notes": "The wheel has 4 quadrants, one per round, each pointing at 3 of the 12 pattern/color categories. Points scale UP from round 1 to round 4 because later rounds tend to target higher-value patterns and you have more matching hexagons placed. The exact 3 categories per quadrant depend on which physical wheel side is used (two sides for variability).",
+      "quadrantsPerWheel": 4,
+      "categoriesIndicatedPerQuadrant": 3,
+      "wheelSides": 2,
+      "_unconfirmed": "The precise mapping of which 3 patterns/colors each of the 4 quadrants points to is encoded in the physical wheel art and not listed as a numeric table in the rulebook text. Below is a balanced reasonable assignment for the standard (front) wheel side; VERIFY against the physical wheel before final balancing.",
+      "standardSideQuadrants": [
+        { "round": 1, "categories": ["pattern1", "color1", "color2"], "_unconfirmed": true },
+        { "round": 2, "categories": ["pattern2", "pattern3", "color3"], "_unconfirmed": true },
+        { "round": 3, "categories": ["pattern4", "color4", "color5"], "_unconfirmed": true },
+        { "round": 4, "categories": ["pattern5", "pattern6", "color6"], "_unconfirmed": true }
+      ]
+    },
+    "passPenalty": {
+      "firstPlayerToPass": -1,
+      "_notes": "First player to pass takes the first-player marker and moves back 1 space on the scoring track. On passing, a player MAY discard any number of hexagons from storage and score their values as MINUS points (voluntary cleanup)."
+    }
+  },
+
+  "buyExpansionFromSupply": {
+    "costPoints": 6,
+    "providesSpaces": 7,
+    "faceDown": true,
+    "_notes": "Action C alternative: spend exactly 6 points on the scoring track to take a face-down expansion (7 free spaces). Score cannot go negative."
+  },
+
+  "finalScoring": {
+    "_notes": "After the 4th round's normal end-of-round scoring, perform final scoring.",
+    "emptyStorage": {
+      "perRemainingJoker": 1,
+      "perRemainingTileOrExpansion": "minus the pattern value (tree=-1, bird=-2, ... sixth=-6)"
+    },
+    "groupDefinition": "A group is 2+ adjacent hexagons sharing the same pattern OR the same color (not both). One hexagon can belong to a pattern-group and a color-group simultaneously. A group may never contain two identical hexagons.",
+    "evaluationOrder": "Evaluate each of the 6 colors top-to-bottom, then each of the 6 patterns, using the evaluation track.",
+    "groupScoring": {
+      "minGroupSize": 3,
+      "_notes": "Each group of at least 3 hexagons matching the current color/pattern evaluation scores. A group is scored by summing the pattern VALUE of each hexagon in the group. There is no limit to how many groups score per evaluation, and the same tile can count in multiple groups (once per color-group, once per pattern-group).",
+      "scorePerGroup": "sum of pattern values of all hexagons in the group"
+    },
+    "completeSetBonus": {
+      "groupOfSixDifferent": 6,
+      "_notes": "6 additional bonus points for each group of 6 hexagons (a complete set). This is on top of the group's summed-value score.",
+      "_taskInterpretation": "Task brief simplification: 'groups of >=3 score 3, complete set of six scores 6 bonus, tiles can count in multiple groups.' The rulebook's actual rule is richer (groups score the SUM of member pattern values, not a flat 3). Both the flat-3 brief value and the rulebook sum-of-values rule are documented; the engine should implement the rulebook SUM rule for fidelity. Flag: if the design intends the simplified flat-3, switch scorePerGroup to a constant 3."
+    },
+    "tiebreak": "Tied players share the victory."
+  },
+
+  "turnFlow": {
+    "phase1Actions": ["A_acquire", "B_placeTile", "C_placeGardenExpansion", "D_pass"],
+    "_notes": "One action per turn, clockwise, until all players have passed.",
+    "acquire": {
+      "rule": "Declare a pattern OR a color, then take ALL tiles AND garden expansions in the display showing it, but skip duplicates (take only one of any identical hexagon). Selected pattern => all different colors; selected color => all different patterns.",
+      "displayRefill": "If you took >=1 tile from the round stack: move the topmost expansion (with its leftover tiles) out to extend the display, then refill the stack's new top expansion with exactly 4 random tiles. Any expansion left with 0 tiles is flipped face up (revealing a pavilion + 1 hexagon) and becomes draftable.",
+      "storageLimit": "Cannot acquire if it would exceed 12 tile or 2 expansion storage spaces."
+    },
+    "startingPlayer": "Youngest player starts round 1; thereafter the holder of the first-player marker starts."
+  },
+
+  "variant": {
+    "_notes": "Optional harder side: flip the scoring board and assemble the rotary wheel on its other side. Patterns score differently in Phase 2, and more bonus points are awarded for groups in final scoring. Numbers for the variant are not transcribed here.",
+    "_unconfirmed": "Variant-side pattern scoring and group bonuses not captured numerically; out of scope for v1."
+  }
+}

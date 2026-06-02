@@ -1,0 +1,12 @@
+{
+  "name": "@tomsgarden/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./types.ts",
+  "exports": {
+    ".": "./types.ts",
+    "./types": "./types.ts",
+    "./engine": "./engine/index.ts"
+  }
+}

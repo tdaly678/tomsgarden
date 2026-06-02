@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "title": "Tomsgarden rename map",
+    "_legalNote": "Game MECHANICS are not copyrightable, so a mechanically identical clone is permissible. However, specific NAMES, themes, logos, and ART are protected by trademark/copyright. Every public-facing name and asset must use the original Tomsgarden vocabulary below — never the source game's component names. Do not reuse trademarked art; commission/generate original art only. The internal `rules.json` uses neutral source terms for clarity; this map translates them to the ship-able Tomsgarden names.",
+    "theme": "Tom's backyard garden — plants, beds, and garden ornaments."
+  },
+
+  "game": {
+    "Azul: Queen's Garden": "Tomsgarden",
+    "Queen's Garden": "Tom's Garden"
+  },
+
+  "features": {
+    "pavilion": "gazebo",
+    "fountain": "birdbath",
+    "statue": "garden gnome",
+    "bench": "potting table"
+  },
+
+  "patterns": {
+    "_note": "Source patterns (tree/bird/butterfly/flower/...) renamed to Tom's-garden plant/critter motifs. Values unchanged.",
+    "tree": { "tomsgarden": "sapling", "value": 1 },
+    "bird": { "tomsgarden": "robin", "value": 2 },
+    "butterfly": { "tomsgarden": "ladybug", "value": 3 },
+    "flower": { "tomsgarden": "sunflower", "value": 4 },
+    "pattern5": { "tomsgarden": "snail", "value": 5 },
+    "pattern6": { "tomsgarden": "beehive", "value": 6 }
+  },
+
+  "colors": {
+    "_note": "Six colors renamed to garden-bed plant names. Keep palettes original; do not copy source art hues exactly if they are distinctive trade dress.",
+    "color1": "lavender",
+    "color2": "marigold",
+    "color3": "fern",
+    "color4": "rose",
+    "color5": "bluebell",
+    "color6": "ivy"
+  },
+
+  "components": {
+    "garden board": "garden plot",
+    "fountain board": "patio (central board)",
+    "garden expansion": "flower bed",
+    "tile": "plant tile",
+    "hexagon": "plant",
+    "joker": "wildseed",
+    "storage": "shed",
+    "rotary wheel": "season dial",
+    "scoring board": "almanac",
+    "scoring track": "harvest track",
+    "evaluation track": "bloom track",
+    "evaluation marker": "bloom marker",
+    "first player marker": "head gardener token",
+    "tower": "compost bin",
+    "supply": "nursery",
+    "point token": "harvest token",
+    "shield token": "spade token (supply cost marker)"
+  },
+
+  "people": {
+    "King Manuel I / Queen Maria": "Tom (the gardener)"
+  }
+}
