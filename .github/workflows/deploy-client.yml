@@ -32,6 +32,7 @@ jobs:
         run: npm run build
         env:
           VITE_BASE: /tomsgarden/
+          VITE_PARTYKIT_HOST: tomsgarden.tdaly678.partykit.dev
       - name: Add SPA 404 fallback
         run: cp client/dist/index.html client/dist/404.html
       - uses: actions/configure-pages@v5
