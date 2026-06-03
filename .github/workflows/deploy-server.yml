@@ -26,4 +26,4 @@ jobs:
         run: npm run deploy --workspace @tomsgarden/server
         env:
           PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
-          PARTYKIT_LOGIN: github
+          PARTYKIT_LOGIN: tdaly678
