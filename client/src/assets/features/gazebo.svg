@@ -1,0 +1,10 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<title>Gazebo</title>
+<polygon points="32,6 54,22 10,22" fill="var(--tg-wood,#9a6b3f)"/>
+<polygon points="32,6 54,22 46,22" fill="rgba(0,0,0,0.18)"/>
+<rect x="14" y="22" width="36" height="3" fill="var(--tg-wood-dark,#5f3f23)"/>
+<rect x="16" y="25" width="4" height="26" fill="var(--tg-wood,#9a6b3f)"/>
+<rect x="44" y="25" width="4" height="26" fill="var(--tg-wood,#9a6b3f)"/>
+<rect x="29" y="25" width="6" height="26" fill="var(--tg-wood,#9a6b3f)"/>
+<rect x="10" y="51" width="44" height="5" rx="2" fill="var(--tg-stone,#b7b0a3)"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<title>Birdbath</title>
+<rect x="20" y="40" width="24" height="6" rx="2" fill="var(--tg-stone-dark,#7e776a)"/>
+<rect x="28" y="22" width="8" height="20" fill="var(--tg-stone,#b7b0a3)"/>
+<path d="M14 20h36a18 8 0 0 1-36 0z" fill="var(--tg-stone,#b7b0a3)"/>
+<ellipse cx="32" cy="20" rx="16" ry="5" fill="var(--tg-bluebell-soft,#c2dcf0)"/>
+<ellipse cx="32" cy="20" rx="16" ry="5" fill="none" stroke="var(--tg-stone-dark,#7e776a)" stroke-width="2"/>
+<ellipse cx="28" cy="19" rx="3" ry="1" fill="#fff" opacity="0.7"/>
+</svg>

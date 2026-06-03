@@ -29,6 +29,7 @@ export default [
         URLSearchParams: 'readonly',
         console: 'readonly',
         process: 'readonly',
+        structuredClone: 'readonly',
       },
     },
     plugins: {

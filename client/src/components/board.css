@@ -1,0 +1,718 @@
+/*
+ * Tomsgarden board styles.
+ *
+ * THEME CONTRACT (for the Design agent): every color/asset is a CSS custom
+ * property under `:root` below. Override these (or ship a separate stylesheet
+ * loaded after this one) to re-skin the whole board without touching any TSX.
+ * The tile/feature glyphs are emoji placeholders set in theme.ts.
+ */
+
+:root {
+  /* surface / chrome */
+  --tg-bg: #10241b;
+  --tg-bg-2: #163026;
+  --tg-panel: #1b3a2c;
+  --tg-panel-2: #234534;
+  --tg-ink: #e8f3ec;
+  --tg-ink-dim: #a9c4b5;
+  --tg-accent: #e8b53d;
+  --tg-radius: 12px;
+  --tg-border: rgba(255, 255, 255, 0.1);
+
+  /* tile colors (garden beds) */
+  --tg-color-lavender: #9b7ed0;
+  --tg-color-marigold: #e8b53d;
+  --tg-color-fern: #5fa86a;
+  --tg-color-rose: #cf5b6b;
+  --tg-color-bluebell: #5b8fd0;
+  --tg-color-ivy: #d98a4a;
+  --tg-wildseed: #c8c1b2;
+  --tg-wildseed-mark: #4a4338;
+
+  /* board spaces */
+  --tg-space-bg: #243a2c;
+  --tg-space-stroke: rgba(255, 255, 255, 0.12);
+  --tg-feature-bg: #3a4d3f;
+  --tg-tile-stroke: rgba(0, 0, 0, 0.4);
+  --tg-legal: #9be6a8;
+
+  /* dial */
+  --tg-dial-bg: #2e231a;
+  --tg-dial-sector: #382a1d;
+  --tg-dial-active: #4d3d28;
+  --tg-dial-ring: #7a6648;
+  --tg-dial-pointer: #f4e7c4;
+  --tg-dial-text: #d8c8a8;
+  --tg-dial-chip: #5a4a32;
+  --tg-dial-hub: #1d1610;
+
+  /* players */
+  --tg-player-0: #e8b53d;
+  --tg-player-1: #cf5b6b;
+  --tg-player-2: #5b8fd0;
+  --tg-player-3: #5fa86a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.tg-board {
+  font-family: 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--tg-bg-2), transparent),
+    var(--tg-bg);
+  color: var(--tg-ink);
+  padding: 12px;
+}
+
+/* ---------- top bar ---------- */
+.tg-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--tg-panel);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--tg-radius);
+}
+.tg-title {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: 0.06em;
+  color: var(--tg-accent);
+}
+.tg-status,
+.tg-scores {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tg-scores {
+  margin-left: auto;
+}
+.tg-chip,
+.tg-score-pill {
+  background: var(--tg-bg-2);
+  border: 1px solid var(--tg-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+  font-family: system-ui, sans-serif;
+}
+.tg-chip.is-you {
+  border-color: var(--tg-accent);
+  color: var(--tg-accent);
+}
+.tg-score-pill.is-active {
+  border-color: var(--tg-accent);
+  box-shadow: 0 0 0 1px var(--tg-accent);
+}
+
+/* ---------- main 3-column layout ---------- */
+.tg-main {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  gap: 12px;
+  margin-top: 12px;
+}
+.tg-left,
+.tg-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tg-center-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tg-left,
+.tg-right,
+.tg-central,
+.tg-player,
+.tg-dial,
+.tg-track {
+  background: var(--tg-panel);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--tg-radius);
+}
+.tg-left,
+.tg-right {
+  background: transparent;
+  border: none;
+}
+
+@media (max-width: 1100px) {
+  .tg-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- central display ---------- */
+.tg-central {
+  padding: 12px;
+}
+.tg-central-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--tg-ink-dim);
+  margin-bottom: 8px;
+}
+.tg-factories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.tg-source {
+  background: var(--tg-bg-2);
+  border: 1px solid var(--tg-border);
+  border-radius: 10px;
+  padding: 8px;
+}
+.tg-source.is-wide {
+  margin-top: 10px;
+}
+.tg-source-label {
+  font-size: 0.7rem;
+  color: var(--tg-ink-dim);
+  font-family: system-ui, sans-serif;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.tg-source-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tg-color-group {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+.tg-color-group:hover:not(:disabled) {
+  border-color: var(--tg-legal);
+}
+.tg-color-group.is-selected {
+  border-color: var(--tg-accent);
+  box-shadow: 0 0 8px var(--tg-accent);
+}
+.tg-color-group:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.tg-empty-note {
+  font-size: 0.7rem;
+  color: var(--tg-ink-dim);
+  font-style: italic;
+}
+
+/* ---------- tiles ---------- */
+.tg-tile.is-clickable {
+  cursor: pointer;
+}
+.tg-tile.is-selected {
+  filter: drop-shadow(0 0 4px var(--tg-accent));
+}
+.tg-tile.is-dimmed {
+  opacity: 0.4;
+}
+
+/* ---------- garden plot ---------- */
+.tg-plot {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+}
+.tg-plot-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.tg-plot-label {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  font-size: 0.7rem;
+  font-family: system-ui, sans-serif;
+  color: var(--tg-ink-dim);
+}
+.tg-space.is-clickable {
+  cursor: pointer;
+}
+.tg-space.is-legal .tg-space-base {
+  stroke: var(--tg-legal);
+  stroke-width: 2.5;
+}
+.tg-legal-dot {
+  opacity: 0.85;
+  animation: tg-pulse 1.1s ease-in-out infinite;
+}
+@keyframes tg-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.tg-space.is-invalid .tg-space-base {
+  stroke: #ff6b6b;
+  stroke-width: 3;
+  animation: tg-shake 0.4s;
+}
+@keyframes tg-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/* ---------- player panel ---------- */
+.tg-player {
+  padding: 10px;
+}
+.tg-player.is-active {
+  box-shadow: 0 0 0 2px var(--tg-accent);
+}
+.tg-player-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: system-ui, sans-serif;
+  margin-bottom: 8px;
+}
+.tg-seat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+}
+.tg-player-name {
+  font-weight: 600;
+}
+.tg-disconnected {
+  color: var(--tg-ink-dim);
+  font-size: 0.8rem;
+}
+.tg-turn-badge {
+  color: var(--tg-accent);
+  font-size: 0.75rem;
+}
+.tg-player-score {
+  margin-left: auto;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--tg-accent);
+}
+.tg-player-body {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tg-player-side {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- shed ---------- */
+.tg-shed {
+  background: var(--tg-bg-2);
+  border: 1px solid var(--tg-border);
+  border-radius: 10px;
+  padding: 8px;
+}
+.tg-shed-head {
+  display: flex;
+  justify-content: space-between;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8rem;
+  color: var(--tg-ink-dim);
+  margin-bottom: 6px;
+}
+.tg-wildseed-count {
+  color: var(--tg-accent);
+}
+.tg-shed-slots {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+.tg-slot,
+.tg-bed-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1px dashed var(--tg-border);
+  border-radius: 6px;
+  min-height: 30px;
+}
+.tg-slot-empty {
+  width: 100%;
+  height: 100%;
+}
+.tg-shed-beds {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.tg-bed-slot {
+  aspect-ratio: 2.5;
+  font-size: 1.1rem;
+}
+
+/* ---------- floor / compost ---------- */
+.tg-floor {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--tg-border);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+.tg-floor-label {
+  font-size: 0.75rem;
+  font-family: system-ui, sans-serif;
+  color: var(--tg-ink-dim);
+}
+.tg-floor-tiles {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+/* ---------- season dial ---------- */
+.tg-dial {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.tg-dial-head {
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--tg-ink-dim);
+}
+.tg-dial-stage {
+  position: relative;
+}
+.tg-dial-pointer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.tg-dial-wheel {
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: center;
+}
+.tg-dial-sector.is-active {
+  filter: drop-shadow(0 0 6px var(--tg-accent));
+}
+.tg-dial-round-num {
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+}
+.tg-dial-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.78rem;
+  color: var(--tg-ink-dim);
+}
+
+/* ---------- harvest track ---------- */
+.tg-track {
+  padding: 12px;
+}
+.tg-track-head {
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--tg-ink-dim);
+  margin-bottom: 8px;
+}
+.tg-track-rail {
+  position: relative;
+  height: 280px;
+  margin-left: 28px;
+  border-left: 2px solid var(--tg-border);
+}
+.tg-track-tick {
+  position: absolute;
+  left: -28px;
+  width: 100%;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+.tg-track-tick span {
+  position: absolute;
+  left: 0;
+  top: -8px;
+  font-size: 0.65rem;
+  color: var(--tg-ink-dim);
+  font-family: system-ui, sans-serif;
+}
+.tg-track-token {
+  position: absolute;
+  transform: translateY(50%);
+  min-width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  font-family: system-ui, sans-serif;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  transition: bottom 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- opponents column ---------- */
+.tg-opponents-head {
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--tg-ink-dim);
+}
+.tg-right .tg-player-body {
+  justify-content: center;
+}
+
+/* ---------- actions / hints / toast ---------- */
+.tg-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tg-btn {
+  font-family: system-ui, sans-serif;
+  background: var(--tg-accent);
+  color: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tg-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tg-hint {
+  font-size: 0.8rem;
+  color: var(--tg-ink-dim);
+  font-family: system-ui, sans-serif;
+}
+.tg-toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: var(--tg-ink);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+  border: 1px solid var(--tg-accent);
+  z-index: 50;
+  animation: tg-toast-in 0.2s ease;
+}
+@keyframes tg-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+/* ---------- live scoreboard: popups, pulses, overlays ---------- */
+.tg-score-popup {
+  position: absolute;
+  transform: translateY(50%);
+  font-family: system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--tg-accent);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 60;
+  animation: tg-popup-float 1.6s var(--tg-ease-out, ease-out) forwards;
+}
+@keyframes tg-popup-float {
+  0% { opacity: 0; transform: translateY(70%) scale(0.8); }
+  15% { opacity: 1; transform: translateY(50%) scale(1.1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-10%) scale(1); }
+}
+.tg-track-token.is-scoring {
+  animation: tg-token-pulse 0.7s var(--tg-ease-emphasized, ease) 1;
+}
+@keyframes tg-token-pulse {
+  0%, 100% { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4); }
+  40% {
+    box-shadow: 0 0 0 4px var(--tg-accent), 0 2px 10px rgba(0, 0, 0, 0.5);
+    transform: translateY(50%) scale(1.18);
+  }
+}
+
+/* Season dial: emphasize the active round. */
+.tg-dial[data-round] .tg-dial-sector.is-active {
+  animation: tg-dial-glow 1.8s ease-in-out infinite alternate;
+}
+@keyframes tg-dial-glow {
+  from { filter: drop-shadow(0 0 4px var(--tg-accent)); }
+  to { filter: drop-shadow(0 0 12px var(--tg-accent)); }
+}
+
+/* Round-end summary overlay. */
+.tg-round-overlay,
+.tg-results {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tg-overlay-scrim, rgba(18, 17, 16, 0.55));
+  z-index: var(--tg-z-overlay, 500);
+  animation: tg-fade-in var(--tg-dur-base, 220ms) ease;
+}
+.tg-results { z-index: var(--tg-z-modal, 1000); }
+@keyframes tg-fade-in { from { opacity: 0; } }
+
+.tg-round-card,
+.tg-results-card {
+  background: var(--tg-bg-2, #163026);
+  color: var(--tg-ink, #e8f3ec);
+  border: 1px solid var(--tg-accent, #e8b53d);
+  border-radius: var(--tg-radius-lg, 14px);
+  padding: 20px 24px;
+  min-width: 280px;
+  max-width: 420px;
+  box-shadow: var(--tg-shadow-lg, 0 8px 22px rgba(0, 0, 0, 0.4));
+  font-family: system-ui, sans-serif;
+  animation: tg-card-rise var(--tg-dur-slow, 360ms) var(--tg-ease-emphasized, ease) both;
+  text-align: center;
+}
+@keyframes tg-card-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+.tg-round-card-head {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--tg-accent, #e8b53d);
+  margin-bottom: 12px;
+}
+.tg-round-list,
+.tg-results-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tg-round-row,
+.tg-results-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--tg-radius-md, 8px);
+  background: rgba(255, 255, 255, 0.04);
+}
+.tg-round-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  flex: none;
+}
+.tg-round-name,
+.tg-results-name {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+}
+.tg-round-delta {
+  font-weight: 800;
+  color: var(--tg-accent, #e8b53d);
+  min-width: 38px;
+  text-align: right;
+}
+.tg-round-total,
+.tg-results-score {
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--tg-ink-dim, #a9c4b5);
+}
+
+/* End-game results. */
+.tg-results-trophy {
+  font-size: 2.6rem;
+  line-height: 1;
+  animation: tg-trophy-pop var(--tg-dur-deliberate, 600ms) var(--tg-ease-emphasized, ease) both;
+}
+@keyframes tg-trophy-pop {
+  0% { transform: scale(0.4) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(4deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.tg-results-head {
+  margin: 6px 0 16px;
+  font-size: 1.4rem;
+  color: var(--tg-accent, #e8b53d);
+}
+.tg-results-rank {
+  min-width: 18px;
+  font-weight: 700;
+  color: var(--tg-ink-dim, #a9c4b5);
+}
+.tg-results-row.is-winner {
+  background: rgba(232, 181, 61, 0.16);
+  border: 1px solid var(--tg-accent, #e8b53d);
+}
+.tg-results-row.is-winner .tg-results-score {
+  color: var(--tg-accent, #e8b53d);
+  font-weight: 800;
+}
+.tg-results-crown { color: var(--tg-accent, #e8b53d); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tg-score-popup,
+  .tg-track-token.is-scoring,
+  .tg-dial[data-round] .tg-dial-sector.is-active,
+  .tg-round-overlay,
+  .tg-results,
+  .tg-round-card,
+  .tg-results-card,
+  .tg-results-trophy {
+    animation: none;
+  }
+}

@@ -1,54 +1,34 @@
 /**
- * Tomsgarden rules engine — STUB.
+ * Tomsgarden rules engine — public entry point.
  *
- * Another agent owns the real implementation (see `shared/rules/`). This module
- * defines the canonical, typed function signatures the rest of the codebase
- * (server room, client previews, tests) should depend on. Every function
- * currently throws "not implemented".
+ * The faithful, pure, deterministic Queen's Garden engine lives in `./core.ts`
+ * and operates on the richer `EngineGameState` / `EngineAction` model in
+ * `./model.ts` + `./actions.ts` (the thin wire types in `../types.ts` do not
+ * carry hex gardens, storage, jokers, the scoring wheel, or expansions).
+ *
+ * Everything here is UI- and network-free. Randomness (tile-bag shuffling) is
+ * driven by a seedable PRNG so games are reproducible and testable.
  */
 
-import type { Action, GameState, PlayerState } from '../types.js';
-
-/**
- * Enumerate all legal actions for the given player in the current state.
- * Used by the server to validate moves and by the client to render hints.
- */
-export function generateLegalMoves(
-  _state: GameState,
-  _playerId: string,
-): Action[] {
-  throw new Error('not implemented: generateLegalMoves');
-}
-
-/**
- * Apply an action to a state, returning the next authoritative state.
- * Must be pure (no mutation of the input) and deterministic given its inputs.
- * Throws on illegal actions.
- */
-export function applyAction(_state: GameState, _action: Action): GameState {
-  throw new Error('not implemented: applyAction');
-}
-
-/**
- * Score the current round, returning the state with per-player scores updated
- * and the phase advanced. Does not award end-of-game bonuses.
- */
-export function scoreRound(_state: GameState): GameState {
-  throw new Error('not implemented: scoreRound');
-}
-
-/**
- * Apply end-of-game bonus scoring (completed rows/columns/colors, etc.) and
- * return the final state.
- */
-export function scoreFinal(_state: GameState): GameState {
-  throw new Error('not implemented: scoreFinal');
-}
-
-/**
- * Determine whether the game has reached a winning condition. Returns the
- * winning `PlayerState` if the game is over, otherwise `null`.
- */
-export function checkWin(_state: GameState): PlayerState | null {
-  throw new Error('not implemented: checkWin');
-}
+export * from './model.js';
+export * from './actions.js';
+export * from './rng.js';
+export {
+  IllegalMoveError,
+  setupGame,
+  generateLegalMoves,
+  applyAction,
+  scoreRound,
+  scoreRoundForPlayer,
+  advanceRound,
+  scoreFinal,
+  scoreFinalForPlayer,
+  checkWin,
+  canPlaceHexAt,
+  validatePayment,
+  countTilesInStorage,
+  countJokers,
+  countRealTiles,
+} from './core.js';
+export type { SetupOptions } from './core.js';
+export * as rulesData from './rules-data.js';

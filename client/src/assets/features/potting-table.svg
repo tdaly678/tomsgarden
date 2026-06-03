@@ -1,0 +1,11 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<title>Potting table</title>
+<rect x="8" y="26" width="48" height="6" rx="2" fill="var(--tg-wood-light,#c79a6a)"/>
+<rect x="8" y="32" width="48" height="3" fill="var(--tg-wood-dark,#5f3f23)"/>
+<rect x="12" y="35" width="5" height="21" fill="var(--tg-wood,#9a6b3f)"/>
+<rect x="47" y="35" width="5" height="21" fill="var(--tg-wood,#9a6b3f)"/>
+<rect x="12" y="44" width="40" height="4" fill="var(--tg-wood,#9a6b3f)"/>
+<path d="M34 14h12l-2 12H36z" fill="var(--tg-marigold,#e8962f)"/>
+<rect x="33" y="12" width="14" height="4" rx="1" fill="var(--tg-marigold-deep,#9a5b10)"/>
+<path d="M40 12c0-5 4-7 7-8-1 4-3 7-7 8z" fill="var(--tg-fern,#6aa83a)"/>
+</svg>

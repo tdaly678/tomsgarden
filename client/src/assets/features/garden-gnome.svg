@@ -1,0 +1,11 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<title>Garden gnome</title>
+<rect x="16" y="54" width="32" height="5" rx="2" fill="var(--tg-stone,#b7b0a3)"/>
+<path d="M32 8l14 28H18z" fill="var(--tg-rose,#d8456b)"/>
+<rect x="22" y="36" width="20" height="18" rx="6" fill="var(--tg-bluebell,#3a82c4)"/>
+<circle cx="32" cy="36" r="9" fill="#f0d6b8"/>
+<path d="M23 38c0 6 4 12 9 12s9-6 9-12z" fill="#e9e4d8"/>
+<circle cx="32" cy="34" r="2.4" fill="#d8456b"/>
+<circle cx="28" cy="32" r="1.2" fill="#34302a"/>
+<circle cx="36" cy="32" r="1.2" fill="#34302a"/>
+</svg>

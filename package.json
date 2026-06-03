@@ -2,7 +2,7 @@
   "name": "tomsgarden",
   "private": true,
   "version": "0.1.0",
-  "description": "Tomsgarden — online real-time multiplayer board game (Azul: Queen's Garden clone).",
+  "description": "Tomsgarden — an online real-time multiplayer tile-laying garden board game.",
   "type": "module",
   "workspaces": [
     "client",

@@ -1,0 +1,310 @@
+/*
+ * Tomsgarden — lobby & link flow styles.
+ *
+ * Pre-game screens (Home / Join / Lobby) plus shared connection chrome. All
+ * colors/spacing pull from the design tokens (var(--tg-*)) defined in
+ * design/design-tokens.css, which App imports once at startup.
+ */
+
+.tg-screen {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--tg-space-6);
+  background:
+    radial-gradient(120% 120% at 50% -10%, var(--tg-garden-bg-2), var(--tg-garden-bg));
+  color: var(--tg-text-inverse);
+  font-family: var(--tg-font-body);
+}
+
+.tg-brand {
+  text-align: center;
+  margin-bottom: var(--tg-space-6);
+}
+.tg-brand h1 {
+  font-family: var(--tg-font-display);
+  font-size: var(--tg-text-4xl);
+  letter-spacing: var(--tg-tracking-wide);
+  margin: 0;
+  color: var(--tg-neutral-50);
+  text-shadow: var(--tg-shadow-md);
+}
+.tg-brand p {
+  margin: var(--tg-space-2) 0 0;
+  color: var(--tg-color-marigold-soft);
+  font-size: var(--tg-text-lg);
+}
+
+.tg-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--tg-surface-card);
+  color: var(--tg-text-primary);
+  border-radius: var(--tg-radius-lg);
+  box-shadow: var(--tg-shadow-lg);
+  padding: var(--tg-space-6);
+  box-sizing: border-box;
+}
+.tg-card.tg-card-wide {
+  max-width: 560px;
+}
+
+.tg-card h2 {
+  font-family: var(--tg-font-display);
+  font-size: var(--tg-text-2xl);
+  margin: 0 0 var(--tg-space-4);
+  color: var(--tg-color-fern-deep);
+}
+
+.tg-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-space-1);
+  margin-bottom: var(--tg-space-4);
+}
+.tg-field label {
+  font-size: var(--tg-text-sm);
+  font-weight: var(--tg-font-weight-medium);
+  color: var(--tg-text-secondary);
+}
+.tg-field input,
+.tg-field select {
+  font: inherit;
+  padding: var(--tg-space-3);
+  border: 2px solid var(--tg-neutral-200);
+  border-radius: var(--tg-radius-md);
+  background: var(--tg-surface-raised);
+  color: var(--tg-text-primary);
+}
+.tg-field input:focus,
+.tg-field select:focus {
+  outline: none;
+  border-color: var(--tg-status-focus);
+  box-shadow: var(--tg-ring-focus);
+}
+
+.tg-seat-buttons {
+  display: flex;
+  gap: var(--tg-space-2);
+}
+.tg-seat-buttons button {
+  flex: 1;
+  padding: var(--tg-space-3);
+  font: inherit;
+  font-weight: var(--tg-font-weight-bold);
+  border: 2px solid var(--tg-neutral-200);
+  border-radius: var(--tg-radius-md);
+  background: var(--tg-surface-raised);
+  color: var(--tg-text-secondary);
+  cursor: pointer;
+  transition: all var(--tg-dur-fast) var(--tg-ease-standard);
+}
+.tg-seat-buttons button[aria-pressed='true'] {
+  border-color: var(--tg-color-fern);
+  background: var(--tg-color-fern-soft);
+  color: var(--tg-color-fern-deep);
+}
+
+.tg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tg-space-2);
+  font: inherit;
+  font-weight: var(--tg-font-weight-bold);
+  padding: var(--tg-space-3) var(--tg-space-5);
+  border: none;
+  border-radius: var(--tg-radius-md);
+  cursor: pointer;
+  transition: transform var(--tg-dur-fast) var(--tg-ease-emphasized),
+    filter var(--tg-dur-fast) var(--tg-ease-standard);
+}
+.tg-btn:active {
+  transform: translateY(1px);
+}
+.tg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tg-btn-primary {
+  background: var(--tg-color-fern);
+  color: var(--tg-color-fern-ink);
+  box-shadow: var(--tg-shadow-md);
+}
+.tg-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.tg-btn-secondary {
+  background: var(--tg-color-marigold);
+  color: var(--tg-color-marigold-ink);
+}
+.tg-btn-ghost {
+  background: transparent;
+  color: var(--tg-text-secondary);
+  border: 2px solid var(--tg-neutral-200);
+}
+.tg-btn-danger {
+  background: var(--tg-status-invalid);
+  color: #fff;
+}
+.tg-btn-block {
+  width: 100%;
+}
+
+.tg-btn-row {
+  display: flex;
+  gap: var(--tg-space-3);
+  margin-top: var(--tg-space-4);
+}
+
+.tg-home-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-space-3);
+}
+.tg-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--tg-text-muted);
+  font-size: var(--tg-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tg-tracking-wide);
+  margin: var(--tg-space-4) 0;
+}
+.tg-divider::before,
+.tg-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--tg-neutral-200);
+}
+.tg-divider span {
+  padding: 0 var(--tg-space-3);
+}
+
+.tg-link-box {
+  display: flex;
+  gap: var(--tg-space-2);
+  margin-top: var(--tg-space-2);
+}
+.tg-link-box input {
+  flex: 1;
+  font: inherit;
+  font-family: var(--tg-font-mono);
+  font-size: var(--tg-text-sm);
+  padding: var(--tg-space-3);
+  border: 2px solid var(--tg-neutral-200);
+  border-radius: var(--tg-radius-md);
+  background: var(--tg-surface-sunken);
+  color: var(--tg-text-primary);
+}
+
+.tg-error-msg {
+  background: rgba(214, 69, 69, 0.12);
+  color: var(--tg-status-invalid);
+  border: 1px solid var(--tg-status-invalid);
+  border-radius: var(--tg-radius-md);
+  padding: var(--tg-space-3);
+  margin-bottom: var(--tg-space-4);
+  font-size: var(--tg-text-sm);
+}
+
+.tg-hint {
+  color: var(--tg-text-muted);
+  font-size: var(--tg-text-xs);
+  margin-top: var(--tg-space-2);
+}
+
+/* ---- Lobby roster ---- */
+.tg-roster {
+  list-style: none;
+  margin: 0 0 var(--tg-space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tg-space-2);
+}
+.tg-seat {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-space-3);
+  padding: var(--tg-space-3);
+  border-radius: var(--tg-radius-md);
+  background: var(--tg-surface-sunken);
+  border: 2px solid transparent;
+}
+.tg-seat.tg-seat-empty {
+  opacity: 0.55;
+  border: 2px dashed var(--tg-neutral-300);
+  background: transparent;
+}
+.tg-seat.tg-seat-me {
+  border-color: var(--tg-color-bluebell);
+}
+.tg-seat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--tg-radius-pill);
+  background: var(--tg-neutral-300);
+  flex: none;
+}
+.tg-seat-dot.on {
+  background: var(--tg-status-valid);
+}
+.tg-seat-name {
+  flex: 1;
+  font-weight: var(--tg-font-weight-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--tg-space-2);
+}
+.tg-badge {
+  font-size: var(--tg-text-2xs);
+  font-weight: var(--tg-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tg-tracking-wide);
+  padding: 2px var(--tg-space-2);
+  border-radius: var(--tg-radius-pill);
+}
+.tg-badge-host {
+  background: var(--tg-color-marigold-soft);
+  color: var(--tg-color-marigold-deep);
+}
+.tg-badge-ready {
+  background: var(--tg-color-fern-soft);
+  color: var(--tg-color-fern-deep);
+}
+.tg-badge-wait {
+  background: var(--tg-neutral-100);
+  color: var(--tg-text-muted);
+}
+.tg-seat-kick {
+  font: inherit;
+  font-size: var(--tg-text-xs);
+  background: transparent;
+  border: 1px solid var(--tg-status-invalid);
+  color: var(--tg-status-invalid);
+  border-radius: var(--tg-radius-sm);
+  padding: 2px var(--tg-space-2);
+  cursor: pointer;
+}
+
+.tg-config-row {
+  display: flex;
+  align-items: center;
+  gap: var(--tg-space-3);
+  margin-bottom: var(--tg-space-4);
+  flex-wrap: wrap;
+}
+.tg-config-row .tg-label {
+  font-size: var(--tg-text-sm);
+  color: var(--tg-text-secondary);
+}
+
+.tg-connecting,
+.tg-error-banner {
+  font-family: var(--tg-font-body);
+}

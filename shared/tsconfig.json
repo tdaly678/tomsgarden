@@ -5,5 +5,5 @@
     "rootDir": ".",
     "noEmit": false
   },
-  "include": ["types.ts", "engine/**/*.ts"]
+  "include": ["types.ts", "engine/**/*.ts", "rules/rules.json"]
 }

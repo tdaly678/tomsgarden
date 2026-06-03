@@ -1,0 +1,235 @@
+/* ==========================================================================
+   Tomsgarden — Design Tokens
+   --------------------------------------------------------------------------
+   Single source of truth for the visual identity. All values are exposed as
+   CSS custom properties on :root so any component (React, plain DOM, SVG via
+   currentColor / var()) can consume them. 100% original art & palette —
+   trademark-safe (see STYLE-GUIDE.md).
+
+   Naming convention: --tg-<group>-<name>
+     tg  = Tomsgarden namespace (avoids collisions with app/lib vars)
+   ========================================================================== */
+
+:root {
+  /* ----------------------------------------------------------------------
+     1. TILE / PLANT-BED COLORS  (the 6 game colors)
+     Renamed per rename-map.json. Each color provides:
+       --tg-color-<name>          base fill (mid tone, used for the tile)
+       --tg-color-<name>-soft     light tint (hover / backgrounds)
+       --tg-color-<name>-deep     dark shade (borders / shadows / text-on-light)
+       --tg-color-<name>-ink      text color guaranteed >=4.5:1 on the base
+     Colors are chosen to be perceptually distinct AND to survive the three
+     common colorblind simulations (protan/deutan/tritan). Pattern SHAPE is
+     the primary differentiator; color is secondary (see colorblind note).
+     ---------------------------------------------------------------------- */
+
+  /* color1 — lavender (cool violet) — ink/white 4.89:1 (WCAG AA) */
+  --tg-color-lavender:        #7e60bd;
+  --tg-color-lavender-soft:   #d9cdf0;
+  --tg-color-lavender-deep:   #4f3b7e;
+  --tg-color-lavender-ink:    #ffffff;
+
+  /* color2 — marigold (warm orange-gold) */
+  --tg-color-marigold:        #e8962f;
+  --tg-color-marigold-soft:   #fbe2bd;
+  --tg-color-marigold-deep:   #9a5b10;
+  --tg-color-marigold-ink:    #2a1700;
+
+  /* color3 — fern (green) — ink/white 4.98:1 (WCAG AA) */
+  --tg-color-fern:            #467d25;
+  --tg-color-fern-soft:       #d7ecc2;
+  --tg-color-fern-deep:       #3c6a1d;
+  --tg-color-fern-ink:        #ffffff;
+
+  /* color4 — rose (warm red-pink) */
+  --tg-color-rose:            #d8456b;
+  --tg-color-rose-soft:       #f7c6d4;
+  --tg-color-rose-deep:       #8f2240;
+  --tg-color-rose-ink:        #ffffff;
+
+  /* color5 — bluebell (cool blue) */
+  --tg-color-bluebell:        #3a82c4;
+  --tg-color-bluebell-soft:   #c2dcf0;
+  --tg-color-bluebell-deep:   #1d4d7e;
+  --tg-color-bluebell-ink:    #ffffff;
+
+  /* color6 — ivy (deep teal-green) */
+  --tg-color-ivy:             #1f8a78;
+  --tg-color-ivy-soft:        #bfe6df;
+  --tg-color-ivy-deep:        #0f5246;
+  --tg-color-ivy-ink:         #ffffff;
+
+  /* wildseed / joker — neutral grey (not one of the 6 colors) */
+  --tg-color-wildseed:        #9aa0a6;
+  --tg-color-wildseed-soft:   #e2e4e7;
+  --tg-color-wildseed-deep:   #5b6066;
+  --tg-color-wildseed-ink:    #1b1d1f;
+
+  /* Ordered list helpers (for JS that iterates the 6 colors) */
+  /* See tokens.ts for the array form. */
+
+  /* ----------------------------------------------------------------------
+     2. NEUTRALS  (UI chrome, text, surfaces)
+     ---------------------------------------------------------------------- */
+  --tg-neutral-0:    #ffffff;
+  --tg-neutral-50:   #f6f4ee;   /* parchment / almanac paper */
+  --tg-neutral-100:  #e9e4d8;
+  --tg-neutral-200:  #d6cfbe;
+  --tg-neutral-300:  #b9b09a;
+  --tg-neutral-400:  #8f876f;
+  --tg-neutral-500:  #6a6450;
+  --tg-neutral-600:  #4c473a;
+  --tg-neutral-700:  #34302a;
+  --tg-neutral-800:  #211f1b;
+  --tg-neutral-900:  #121110;
+
+  --tg-text-primary:    var(--tg-neutral-900);
+  --tg-text-secondary:  var(--tg-neutral-600);
+  --tg-text-inverse:    var(--tg-neutral-50);
+  --tg-text-muted:      var(--tg-neutral-400);
+
+  /* ----------------------------------------------------------------------
+     3. BOARD / WOOD / GARDEN BACKGROUND TONES
+     ---------------------------------------------------------------------- */
+  --tg-garden-bg:       #16352a;   /* deep planted-bed green (app backdrop) */
+  --tg-garden-bg-2:     #1f4636;   /* lighter green for gradient stop */
+  --tg-soil:            #4a3526;   /* tilled-soil brown */
+  --tg-soil-dark:       #2e2017;
+  --tg-wood:            #9a6b3f;   /* potting-table / frame wood */
+  --tg-wood-light:      #c79a6a;
+  --tg-wood-dark:       #5f3f23;
+  --tg-stone:           #b7b0a3;   /* birdbath / gnome stone */
+  --tg-stone-dark:      #7e776a;
+  --tg-patio:           #cdbfa6;   /* central board (patio) flagstone */
+  --tg-plot-empty:      #e7ddc7;   /* empty hex space on garden plot */
+  --tg-plot-empty-edge: #c3b696;
+
+  /* Surfaces */
+  --tg-surface-card:    var(--tg-neutral-50);
+  --tg-surface-raised:  var(--tg-neutral-0);
+  --tg-surface-sunken:  var(--tg-neutral-100);
+  --tg-overlay-scrim:   rgba(18, 17, 16, 0.55);
+
+  /* Feedback / status */
+  --tg-status-valid:    #3fae6a;   /* legal placement highlight */
+  --tg-status-invalid:  #d64545;   /* illegal placement */
+  --tg-status-active:   #f0c54a;   /* current player / selectable glow */
+  --tg-status-focus:    #4aa3f0;   /* keyboard focus ring */
+
+  /* ----------------------------------------------------------------------
+     4. TYPOGRAPHY
+     Dependency-free: system font stacks. Display stack favors a humanist /
+     rounded look for the garden brand; body favors readable sans.
+     ---------------------------------------------------------------------- */
+  --tg-font-display: "Iowan Old Style", "Palatino Linotype", Palatino,
+                     "Georgia", "Times New Roman", serif;
+  --tg-font-body:    system-ui, -apple-system, "Segoe UI", Roboto,
+                     "Helvetica Neue", Arial, sans-serif;
+  --tg-font-mono:    ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
+                     Consolas, monospace;
+
+  /* Modular scale, ratio ~1.250 (major third), base 16px */
+  --tg-text-2xs:  0.694rem;  /* 11px */
+  --tg-text-xs:   0.8rem;    /* ~13px */
+  --tg-text-sm:   0.9rem;
+  --tg-text-base: 1rem;      /* 16px */
+  --tg-text-lg:   1.25rem;
+  --tg-text-xl:   1.563rem;
+  --tg-text-2xl:  1.953rem;
+  --tg-text-3xl:  2.441rem;
+  --tg-text-4xl:  3.052rem;
+
+  --tg-font-weight-regular: 400;
+  --tg-font-weight-medium:  500;
+  --tg-font-weight-bold:    700;
+
+  --tg-leading-tight:  1.15;
+  --tg-leading-normal: 1.45;
+  --tg-leading-loose:  1.7;
+
+  --tg-tracking-tight:  -0.01em;
+  --tg-tracking-normal: 0;
+  --tg-tracking-wide:   0.05em;   /* brand wordmark */
+
+  /* ----------------------------------------------------------------------
+     5. SPACING  (4px base grid)
+     ---------------------------------------------------------------------- */
+  --tg-space-0:   0;
+  --tg-space-1:   0.25rem;  /* 4 */
+  --tg-space-2:   0.5rem;   /* 8 */
+  --tg-space-3:   0.75rem;  /* 12 */
+  --tg-space-4:   1rem;     /* 16 */
+  --tg-space-5:   1.5rem;   /* 24 */
+  --tg-space-6:   2rem;     /* 32 */
+  --tg-space-7:   3rem;     /* 48 */
+  --tg-space-8:   4rem;     /* 64 */
+
+  /* Hex tile sizing (board agent can scale via these) */
+  --tg-tile-size:        64px;   /* flat-to-flat width of a hex tile */
+  --tg-tile-size-sm:     44px;
+  --tg-tile-gap:         4px;
+  --tg-tile-border:      2px;
+
+  /* ----------------------------------------------------------------------
+     6. RADII
+     ---------------------------------------------------------------------- */
+  --tg-radius-xs:   2px;
+  --tg-radius-sm:   4px;
+  --tg-radius-md:   8px;
+  --tg-radius-lg:   14px;
+  --tg-radius-xl:   24px;
+  --tg-radius-pill: 999px;
+
+  /* ----------------------------------------------------------------------
+     7. SHADOWS / ELEVATION
+     ---------------------------------------------------------------------- */
+  --tg-shadow-sm:   0 1px 2px rgba(18, 17, 16, 0.18);
+  --tg-shadow-md:   0 2px 6px rgba(18, 17, 16, 0.22);
+  --tg-shadow-lg:   0 8px 22px rgba(18, 17, 16, 0.28);
+  --tg-shadow-tile: 0 2px 0 rgba(0, 0, 0, 0.18),
+                    0 3px 6px rgba(0, 0, 0, 0.22);   /* chunky game-piece look */
+  --tg-shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.22); /* empty hex socket */
+  --tg-ring-focus:  0 0 0 3px var(--tg-status-focus);
+  --tg-glow-active: 0 0 0 3px var(--tg-status-active),
+                    0 0 12px 2px rgba(240, 197, 74, 0.55);
+
+  /* ----------------------------------------------------------------------
+     8. ANIMATION / MOTION
+     ---------------------------------------------------------------------- */
+  --tg-ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --tg-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);  /* slight overshoot */
+  --tg-ease-out:       cubic-bezier(0, 0, 0.2, 1);
+
+  --tg-dur-instant: 80ms;
+  --tg-dur-fast:    140ms;
+  --tg-dur-base:    220ms;
+  --tg-dur-slow:    360ms;
+  --tg-dur-deliberate: 600ms;   /* tile placement settle, score tick */
+
+  --tg-z-board:    0;
+  --tg-z-tiles:    10;
+  --tg-z-drag:     100;
+  --tg-z-overlay:  500;
+  --tg-z-modal:    1000;
+  --tg-z-toast:    2000;
+}
+
+/* Respect reduced-motion preferences (animation timings collapse). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tg-dur-instant: 0ms;
+    --tg-dur-fast: 0ms;
+    --tg-dur-base: 0ms;
+    --tg-dur-slow: 0ms;
+    --tg-dur-deliberate: 0ms;
+  }
+}
+
+/* Optional dark-chrome variant for UI panels (board stays the same). */
+:root[data-tg-theme="dark"] {
+  --tg-surface-card:   var(--tg-neutral-800);
+  --tg-surface-raised: var(--tg-neutral-700);
+  --tg-surface-sunken: var(--tg-neutral-900);
+  --tg-text-primary:   var(--tg-neutral-50);
+  --tg-text-secondary: var(--tg-neutral-200);
+}

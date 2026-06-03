@@ -1,0 +1,56 @@
+/* ==========================================================================
+   Tomsgarden — Board textures & backgrounds
+   Lightweight, dependency-free. Uses CSS gradients + tiny inline-SVG data URIs
+   (a few hundred bytes each, no network requests). Depends on design-tokens.css
+   for the color values. Apply these classes to board surfaces.
+   ========================================================================== */
+
+/* App backdrop: deep planted garden, soft vignette. */
+.tg-bg-garden {
+  background:
+    radial-gradient(120% 90% at 50% 0%,
+      var(--tg-garden-bg-2) 0%,
+      var(--tg-garden-bg) 60%,
+      #0f261d 100%);
+}
+
+/* Tilled soil — faint diagonal furrows (16px tile). */
+.tg-tex-soil {
+  background-color: var(--tg-soil);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M0 8h16' stroke='%232e2017' stroke-width='1.5' opacity='0.35'/%3E%3C/svg%3E");
+}
+
+/* Wood grain — for potting-table frames / panels (24px tile). */
+.tg-tex-wood {
+  background-color: var(--tg-wood);
+  background-image:
+    linear-gradient(90deg, rgba(0,0,0,0.06) 0%, transparent 50%, rgba(0,0,0,0.06) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='24'%3E%3Cpath d='M0 6q20 4 40 0M0 14q20 -4 40 0M0 20q20 4 40 0' stroke='%235f3f23' fill='none' stroke-width='1' opacity='0.4'/%3E%3C/svg%3E");
+}
+
+/* Patio flagstone — for the central board (subtle stone grid). */
+.tg-tex-patio {
+  background-color: var(--tg-patio);
+  background-image:
+    linear-gradient(rgba(255,255,255,0.18), rgba(0,0,0,0.06)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M0 0h44M0 22h44M22 0v22M0 22v22' stroke='%237e776a' stroke-width='1' opacity='0.3'/%3E%3C/svg%3E");
+}
+
+/* Parchment — almanac / scoring panels. */
+.tg-tex-parchment {
+  background-color: var(--tg-neutral-50);
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(0,0,0,0.03) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(0,0,0,0.03) 0%, transparent 45%);
+}
+
+/* Empty hex socket fill (apply to unplaced garden-plot spaces). */
+.tg-plot-socket {
+  background: var(--tg-plot-empty);
+  box-shadow: var(--tg-shadow-inset);
+}
+
+/* Reusable hex clip-path (flat-top) for square wrappers -> hex shape. */
+.tg-hex-clip {
+  clip-path: polygon(50% 4%, 92% 27%, 92% 73%, 50% 96%, 8% 73%, 8% 27%);
+}
