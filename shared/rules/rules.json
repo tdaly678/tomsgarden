@@ -55,10 +55,17 @@
     },
     "fountainBoardGeometry": {
       "hexSpaces": 13,
-      "shape": "roughly circular hex cluster around a central fountain feature",
-      "featuresPrinted": ["fountain (center)"],
-      "_unconfirmed": "13 hex spaces is confirmed by multiple sources (Zatu Games how-to-play: 'fountain boards are larger than the garden expansions, 13 hexagons instead of 7'). The exact arrangement of the 13 hexes around the fountain art and whether additional features (e.g. a bench/statue) are printed on it must be verified from board photos. The fountain itself sits in/at the center and is a surroundable feature.",
-      "suggestedAxialLayout": "_unconfirmed: a 13-space layout consistent with photos is a hex ring structure: central fountain occupying the middle with 13 tile spaces arranged around/beside it. Engine may use any 13-space connected hex layout with the fountain feature adjacent to several of them; flag for art verification."
+      "shape": "symmetric flower/star: central fountain, 6 empty placeable spaces (ring 1), 6 printed features (alternating ring-2 positions)",
+      "featuresPrinted": ["fountain (center)", "statue x3", "bench x3 (alternating around the ring)"],
+      "emptyPlaceableSpaces": 6,
+      "_notes": "CONFIRMED by the game owner + Zatu: the fountain board's 13 hexagons are 1 fountain + 6 printed features (3 statues + 3 benches, alternating) + only 6 empty tile spaces. Surrounding the fountain = filling the 6 ring-1 spaces. The statue/bench features sit at the board's edge and become surroundable as garden expansions attach around them.",
+      "axialLayout": {
+        "fountain": [[0, 0]],
+        "emptySpaces": [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]],
+        "statues": [[2, -1], [-1, 2], [-1, -1]],
+        "benches": [[1, 1], [-2, 1], [1, -2]],
+        "_notes": "Best-reconstruction of the physical board art (owner-confirmed feature counts; exact statue/bench ordering around the ring is cosmetic). Coordinates are axial [q, r]; the 6 features occupy the alternating ring-2 positions that each touch exactly two ring-1 spaces, producing a symmetric 13-hex star."
+      }
     },
     "sharedSetup": {
       "bagTiles": 108,
@@ -72,20 +79,20 @@
   "gardenExpansions": {
     "total": 36,
     "_notes": "CONFIRMED count (rulebook setup step 5: 'Shuffle the 36 garden expansions'). Garden expansions are double-sided hex pieces. Face DOWN (back): blank spaces only. Face UP (front, revealed when emptied of tiles in the display): shows a pavilion in the center and ONE printed hexagon (pattern+color) on one of its spaces. They are drafted like tiles (storage limit 2) and placed into the garden to add space.",
-    "spacesProvidedWhenPlaced": [5, 7],
-    "_spacesNote": "CONFIRMED (rulebook Action C): 'Garden expansions provide 5 or 7 additional spaces for tiles.' A face-down expansion bought from the supply for 6 points provides 7 FREE spaces (no printed hexagon, no pavilion visible).",
+    "spacesProvidedWhenPlaced": [7],
+    "_spacesNote": "CONFIRMED (owner + Zatu: 'fountain boards are larger than the garden expansions, 13 hexagons instead of 7'): EVERY garden expansion is 7 hexagons. Face-down (supply/back): 7 free spaces. Face-up (front): pavilion center + 1 printed pattern hexagon + 5 free spaces = 7 hexagons.",
     "countBySize": {
-      "fiveSpace": null,
-      "sevenSpace": null,
-      "_unconfirmed": "The split of the 36 expansions between 5-space and 7-space pieces is not stated in the rulebook text and could not be confirmed from secondary sources. Verify by counting from component photos/BGG files. Engine note: face-down supply purchases are explicitly 7-space, so at least a substantial share are 7-space."
+      "fiveSpace": 0,
+      "sevenSpace": 36,
+      "_notes": "CONFIRMED: all 36 expansions are 7-hex pieces."
     },
     "faceUpFeatures": {
       "pavilionCenter": true,
       "printedHexagons": 1,
-      "otherFeatures": "_unconfirmed: some expansions show additional features (statues, benches) in photos; exact distribution of statue/bench/fountain features across the 36 expansions is not documented in the rulebook text and must be taken from component scans."
+      "otherFeatures": "Statues and benches are printed on the FOUNTAIN board (3 + 3, owner-confirmed), not on expansions; expansions carry only the pavilion + 1 printed hexagon when face up."
     },
     "geometry": {
-      "_unconfirmed": "Exact hex outlines of the 5-space and 7-space pieces are art-defined. A 7-space piece consistent with photos is a centered hex 'flower' (1 center + 6 ring) with the pavilion occupying the center position graphic; a 5-space piece is an irregular pentomino-like hex cluster. Verify before finalizing client geometry.",
+      "_notes": "All expansion pieces are 7-hex clusters (a centered hex 'flower' — 1 center + 6 ring — is the canonical shape; the engine accepts any connected 7-cell attachment). Face-up pieces show the pavilion on one cell and the printed hexagon on another.",
       "placement": "Attach on a free expansion area around the fountain board, any orientation, following the same adjacency rules as tiles (rulebook Action C, CONFIRMED)."
     },
     "stackSizePerRoundByPlayerCount": {
@@ -127,9 +134,9 @@
     "fountainBoard": {
       "hexCount": 13,
       "placedAt": "center of player's garden at setup",
-      "_notes": "CONFIRMED: the fountain board is the ONLY garden piece a player starts with (rulebook setup step 1). It has 13 hexagon tile spaces (Zatu: '13 hexagons instead of 7') and a fountain feature. The garden is otherwise EMPTY at game start. See startingSetup section."
+      "_notes": "CONFIRMED: the fountain board is the ONLY garden piece a player starts with (rulebook setup step 1). Its 13 hexagons = 1 fountain + 3 statues + 3 benches + 6 empty tile spaces (owner-confirmed; Zatu: '13 hexagons instead of 7'). The garden is otherwise EMPTY at game start. See startingSetup.fountainBoardGeometry for the axial layout."
     },
-    "_layoutNotes": "The garden grows organically: players attach garden-expansion pieces (5 or 7 hex each) around the central fountain board. Tiles are placed onto hex spaces of the fountain board and expansions. Adjacency is hex-based (up to 6 neighbors per hex).",
+    "_layoutNotes": "The garden grows organically: players attach garden-expansion pieces (7 hex each) around the central fountain board. Tiles are placed onto hex spaces of the fountain board and expansions. Adjacency is hex-based (up to 6 neighbors per hex).",
     "placementRules": {
       "mustBeFreeSpace": true,
       "adjacencyRule": "A placed tile must either have NO adjacent hexagons, OR share the same pattern OR the same color with at least one adjacent hexagon.",
@@ -142,9 +149,9 @@
     "_notes": "Garden features are decorative elements on the boards. Fully surrounding a feature (all its adjacent hex spaces occupied) immediately awards jokers from the supply, placed into storage; excess jokers (no storage space) are lost.",
     "_jokerSourceNote": "Rulebook text only says 'you receive jokers from the supply according to the surrounded element'; the exact numbers are printed on the bottom-left of the player board (Zatu Games how-to-play: 'the player immediately receives as many jokers as depicted on the bottom left side of the player board'). The Tabletop Crier review states pavilions award the MOST at 3 jokers ('Pavilions were the best at three joker tokens'), inverting the earlier placeholder ordering. Fountain is the rarest (1 per player, printed on start board) so it logically awards fewest; pavilions appear on every flipped expansion but require surrounding 6 spaces of a 7-space piece.",
     "types": [
-      { "id": "fountain", "jokersAwardedWhenSurrounded": 1, "_unconfirmed": "Verify against player-board art. Only confirmed datum: pavilion = 3 (max). Fountain/statue/bench exact values unverified; 1/2/2-style guesses pending photo confirmation." },
-      { "id": "statue", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "Verify against player-board art (see _jokerSourceNote)." },
-      { "id": "bench", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "Verify against player-board art (see _jokerSourceNote)." },
+      { "id": "fountain", "jokersAwardedWhenSurrounded": 1, "_notes": "CONFIRMED by the game owner: surrounding the fountain (filling the 6 ring-1 spaces) awards 1 joker." },
+      { "id": "statue", "jokersAwardedWhenSurrounded": 2, "_notes": "CONFIRMED by the game owner: 2 jokers. 3 statues are printed on the fountain board." },
+      { "id": "bench", "jokersAwardedWhenSurrounded": 2, "_notes": "CONFIRMED by the game owner: 2 jokers. 3 benches are printed on the fountain board." },
       { "id": "pavilion", "jokersAwardedWhenSurrounded": 3, "scoresEndOfRound": 1, "_sourceConfirmedPartial": "3 jokers for surrounding a pavilion is reported by The Tabletop Crier review ('Pavilions were the best at three joker tokens'). The +1 point per visible pavilion at round scoring is CONFIRMED by the rulebook." }
     ]
   },

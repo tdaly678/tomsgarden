@@ -45,10 +45,10 @@ describe('eval utilities', () => {
     expect(evaluatePlayer(s, 'A')).toBeCloseTo(evaluatePlayer(s, 'B'), 6);
   });
 
-  it('initial player has 12 free fountain-board spaces and 3 jokers, no leftovers', () => {
+  it('initial player has 6 free fountain-board spaces and 3 jokers, no leftovers', () => {
     const s = setup();
     const p = s.players[0];
-    expect(freePlaceableSpaces(p)).toBe(12);
+    expect(freePlaceableSpaces(p)).toBe(6);
     expect(leftoverExposure(p)).toBe(0);
     expect(storageMatchValue(p, 1)).toBe(0);
     expect(futureWheelScore(p, 1)).toBe(0);

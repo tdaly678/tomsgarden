@@ -12,7 +12,7 @@
  *
  * A "garden plot" is a set of hex SPACES. The central Patio supplies 13 spaces
  * arranged as a radius-2 hexagon (with feature spaces interspersed). Flower-bed
- * expansions add clusters of 5 or 7 spaces attached around it.
+ * expansions add clusters of 7 spaces attached around it.
  */
 
 import type { Coord } from './boardModel';
@@ -74,23 +74,14 @@ export function coordKey(at: Coord): string {
   return `${at.row},${at.col}`;
 }
 
-/** All axial coords within `radius` of the origin (a hexagon of hexes). */
-function hexDisk(radius: number): Coord[] {
-  const out: Coord[] = [];
-  for (let r = -radius; r <= radius; r++) {
-    for (let q = -radius; q <= radius; q++) {
-      if (Math.abs(q + r) <= radius) out.push({ row: r, col: q });
-    }
-  }
-  return out;
-}
-
 /**
- * Build the default garden plot for a player at setup:
- *  - Central Patio: radius-2 disk (19 hexes) — we mark 13 as tile spaces and a
- *    handful as features (birdbath at center, gnome / potting table on the ring),
- *    trimming corners to land at the rulebook's 13-hex patio shape.
- *  - Two Flower-bed expansions already attached (5 + 7 spaces) to show growth.
+ * Build the default garden plot for a player at setup — the 13-hex Patio
+ * (fountain board), a symmetric flower/star mirroring the engine's
+ * `fountainBoardSpaces`:
+ *  - birdbath (fountain) at the center
+ *  - 6 empty placeable spaces on ring 1
+ *  - 6 printed features (3 garden gnomes + 3 potting tables, alternating) on
+ *    the alternating ring-2 star points.
  */
 export function buildDefaultPlot(): HexSpace[] {
   const spaces: HexSpace[] = [];
@@ -103,58 +94,24 @@ export function buildDefaultPlot(): HexSpace[] {
     spaces.push({ at, piece, feature });
   };
 
-  // Patio: take the radius-2 disk but drop the 6 far corners -> 13 spaces.
-  const disk = hexDisk(2);
-  const corners = new Set(
-    [
-      { row: -2, col: 2 },
-      { row: 2, col: -2 },
-      { row: -2, col: 0 },
-      { row: 2, col: 0 },
-      { row: 0, col: -2 },
-      { row: 0, col: 2 },
-    ].map(coordKey),
-  );
-  for (const c of disk) {
-    if (corners.has(coordKey(c))) continue;
-    add(c, 'patio');
-  }
-
-  // Features on the patio.
-  setFeature(spaces, { row: 0, col: 0 }, 'birdbath');
-  setFeature(spaces, { row: -1, col: 0 }, 'gardenGnome');
-  setFeature(spaces, { row: 1, col: 0 }, 'pottingTable');
-
-  // Flower-bed A (5 spaces) attached up-right of the patio.
-  const bedA: Coord[] = [
-    { row: -2, col: 3 },
-    { row: -3, col: 3 },
-    { row: -3, col: 4 },
-    { row: -2, col: 4 },
-    { row: -1, col: 3 },
-  ];
-  bedA.forEach((c, i) => add(c, 'bedA', i === 1 ? 'gazebo' : undefined));
-
-  // Flower-bed B (7 spaces) attached down-left of the patio.
-  const bedB: Coord[] = [
+  // Center: birdbath (fountain).
+  add({ row: 0, col: 0 }, 'patio', 'birdbath');
+  // Ring 1: the 6 empty placeable spaces.
+  for (const n of neighbors({ row: 0, col: 0 })) add(n, 'patio');
+  // Alternating ring-2 star points: gnome (statue) / potting table (bench).
+  const featureRing: Coord[] = [
+    { row: -1, col: 2 },
+    { row: 1, col: 1 },
     { row: 2, col: -1 },
-    { row: 3, col: -1 },
-    { row: 3, col: -2 },
-    { row: 2, col: -2 },
-    { row: 3, col: -3 },
-    { row: 4, col: -2 },
-    { row: 4, col: -3 },
+    { row: 1, col: -2 },
+    { row: -1, col: -1 },
+    { row: -2, col: 1 },
   ];
-  bedB.forEach((c, i) => add(c, 'bedB', i === 2 ? 'gazebo' : undefined));
+  featureRing.forEach((c, i) =>
+    add(c, 'patio', i % 2 === 0 ? 'gardenGnome' : 'pottingTable'),
+  );
 
   return spaces;
-}
-
-function setFeature(spaces: HexSpace[], at: Coord, feature: FeatureId): void {
-  const idx = spaces.findIndex((s) => coordKey(s.at) === coordKey(at));
-  if (idx >= 0) {
-    spaces[idx] = { ...spaces[idx], feature };
-  }
 }
 
 /**

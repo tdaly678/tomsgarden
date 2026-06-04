@@ -5,6 +5,7 @@ import {
   canPlaceHexAt,
   checkWin,
   countJokers,
+  fountainBoardSpaces,
   generateLegalMoves,
   IllegalMoveError,
   scoreFinal,
@@ -139,11 +140,29 @@ describe('setupGame', () => {
     for (const p of s.players) {
       expect(p.spaces.length).toBe(13);
       expect(p.spaces.filter((sp) => sp.feature === 'fountain').length).toBe(1);
-      expect(p.spaces.filter((sp) => sp.feature).length).toBe(1); // ONLY fountain
+      expect(p.spaces.filter((sp) => sp.feature === 'statue').length).toBe(3);
+      expect(p.spaces.filter((sp) => sp.feature === 'bench').length).toBe(3);
+      // only 6 EMPTY placeable spaces (ring 1)
+      expect(p.spaces.filter((sp) => !sp.feature).length).toBe(6);
       expect(p.placed.length).toBe(0); // garden empty
       expect(p.expansionStore.length).toBe(0);
       expect(p.storage.every((it) => it.kind === 'joker')).toBe(true);
     }
+  });
+
+  it('every garden expansion is a 7-hex piece', () => {
+    const s = setupGame({
+      roomId: 'r',
+      players: [
+        { id: 'p1', name: 'A' },
+        { id: 'p2', name: 'B' },
+      ],
+      seed: 7,
+    });
+    for (const stack of s.expansionStacks) {
+      for (const e of stack) expect(e.spaces).toBe(7);
+    }
+    for (const e of s.displayExpansions) expect(e.spaces).toBe(7);
   });
 
   it.each([
@@ -276,7 +295,7 @@ describe('rulebook compliance regressions', () => {
     const exp = {
       id: 'e1',
       hex: hx('pattern1', 'color1'),
-      spaces: 5 as const,
+      spaces: 7 as const,
       feature: 'pavilion' as const,
       tiles: [hx('pattern2', 'color2')],
       faceUp: false,
@@ -303,7 +322,7 @@ describe('rulebook compliance regressions', () => {
     const stackTop = {
       id: 'cov',
       hex: hx('pattern5', 'color5'),
-      spaces: 5 as const,
+      spaces: 7 as const,
       feature: 'pavilion' as const,
       tiles: [hx('pattern1', 'color1')],
       faceUp: false,
@@ -336,7 +355,7 @@ describe('rulebook compliance regressions', () => {
       storage: [{ kind: 'tile', hex: hx('pattern2', 'color1') }],
       expansionStore: [
         // printed hexagon same pattern (different color) as the placed tile
-        { id: 'e1', spaces: 5, hex: hx('pattern2', 'color2'), faceDown: false },
+        { id: 'e1', spaces: 7, hex: hx('pattern2', 'color2'), faceDown: false },
       ],
     });
     const state = makeState([p, makePlayer('p2')], { expansionSupply: 0 });
@@ -357,7 +376,7 @@ describe('rulebook compliance regressions', () => {
       storage: [{ kind: 'tile', hex: hx('pattern2', 'color1') }],
       expansionStore: [
         // mismatched: neither same pattern nor same color
-        { id: 'e1', spaces: 5, hex: hx('pattern3', 'color4'), faceDown: false },
+        { id: 'e1', spaces: 7, hex: hx('pattern3', 'color4'), faceDown: false },
       ],
     });
     expect(() =>
@@ -370,7 +389,7 @@ describe('rulebook compliance regressions', () => {
   it('pass may discard held expansions for minus printed value (#38)', () => {
     const p = makePlayer('p1', {
       expansionStore: [
-        { id: 'e1', spaces: 5, hex: hx('pattern4', 'color1'), faceDown: false },
+        { id: 'e1', spaces: 7, hex: hx('pattern4', 'color1'), faceDown: false },
       ],
     });
     const state = makeState([p, makePlayer('p2')], { expansionSupply: 0 });
@@ -388,7 +407,7 @@ describe('rulebook compliance regressions', () => {
   it('final scoring penalizes leftover held expansions by printed value (#54)', () => {
     const p = makePlayer('p1', {
       expansionStore: [
-        { id: 'e1', spaces: 5, hex: hx('pattern5', 'color1'), faceDown: false },
+        { id: 'e1', spaces: 7, hex: hx('pattern5', 'color1'), faceDown: false },
       ],
     });
     expect(scoreFinalForPlayer(p, DEFAULT_CONFIG)).toBe(-5);
@@ -556,27 +575,128 @@ describe('applyAction: PlaceTile', () => {
     ).toThrow(/turn/);
   });
 
-  it('awards jokers when a feature is fully surrounded', () => {
-    // pavilion at center, ring of 3 reachable neighbour spaces; fill last to surround.
+  it('awards 3 jokers when a pavilion is fully surrounded (all 6 neighbours)', () => {
+    // pavilion at center with all 6 neighbour spaces; 5 filled, place the 6th.
+    const ring = [
+      { q: 1, r: 0 },
+      { q: 1, r: -1 },
+      { q: 0, r: -1 },
+      { q: -1, r: 0 },
+      { q: -1, r: 1 },
+      { q: 0, r: 1 },
+    ];
+    const fillHexes = [
+      hx('pattern1', 'color1'),
+      hx('pattern1', 'color2'),
+      hx('pattern1', 'color3'),
+      hx('pattern1', 'color4'),
+      hx('pattern1', 'color5'),
+    ];
     const p = makePlayer('p1', {
       spaces: [
         { at: { q: 0, r: 0 }, feature: 'pavilion' },
-        { at: { q: 1, r: 0 } },
-        { at: { q: 0, r: 1 } },
+        ...ring.map((at) => ({ at })),
       ],
-      placed: [{ at: { q: 1, r: 0 }, hex: hx('pattern1', 'color1') }],
-      storage: [{ kind: 'tile', hex: hx('pattern1', 'color2') }],
+      placed: ring.slice(0, 5).map((at, i) => ({ at, hex: fillHexes[i] })),
+      storage: [{ kind: 'tile', hex: hx('pattern1', 'color6') }],
     });
     const state = makeState([p, makePlayer('p2')]);
     const next = applyAction(state, {
       type: 'PlaceTile',
       playerId: 'p1',
-      hex: hx('pattern1', 'color2'), // shares pattern with neighbour
+      hex: hx('pattern1', 'color6'), // shares pattern with neighbours
       at: { q: 0, r: 1 },
       payment: [],
     });
     // pavilion surround awards 3 jokers (rules.json confirmed value)
     expect(countJokers(next.players[0])).toBe(3);
+  });
+
+  it('fountain board: filling the 6 ring-1 spaces surrounds the fountain (1 joker)', () => {
+    const spaces = fountainBoardSpaces();
+    const ring1 = spaces.filter((s) => !s.feature).map((s) => s.at);
+    expect(ring1.length).toBe(6);
+    const fillHexes = [
+      hx('pattern1', 'color1'),
+      hx('pattern1', 'color2'),
+      hx('pattern1', 'color3'),
+      hx('pattern1', 'color4'),
+      hx('pattern1', 'color5'),
+    ];
+    const p = makePlayer('p1', {
+      spaces,
+      placed: ring1.slice(0, 5).map((at, i) => ({ at, hex: fillHexes[i] })),
+      storage: [{ kind: 'joker' }, { kind: 'tile', hex: hx('pattern1', 'color6') }],
+    });
+    const state = makeState([p, makePlayer('p2')]);
+    const next = applyAction(state, {
+      type: 'PlaceTile',
+      playerId: 'p1',
+      hex: hx('pattern1', 'color6'),
+      at: ring1[5],
+      payment: [],
+    });
+    // fountain surrounded -> +1 joker (had 1 joker before -> 2 now).
+    // No statue/bench is surrounded: their off-board neighbours are empty.
+    expect(countJokers(next.players[0])).toBe(2);
+  });
+
+  it('statues/benches surround for 2 jokers once expansions attach around them', () => {
+    // Statue at (2,-1): neighbours are ring-1 (1,0),(1,-1) plus 4 off-board
+    // cells. Attach spaces there, fill everything -> 2 jokers.
+    const statueAt = { q: 2, r: -1 };
+    const ringSpaces = [
+      { q: 1, r: 0 },
+      { q: 1, r: -1 },
+      { q: 3, r: -1 },
+      { q: 3, r: -2 },
+      { q: 2, r: 0 },
+      { q: 2, r: -2 },
+    ];
+    const fillHexes = [
+      hx('pattern1', 'color1'),
+      hx('pattern1', 'color2'),
+      hx('pattern1', 'color3'),
+      hx('pattern1', 'color4'),
+      hx('pattern1', 'color5'),
+    ];
+    const p = makePlayer('p1', {
+      spaces: [
+        { at: statueAt, feature: 'statue' },
+        ...ringSpaces.map((at) => ({ at })),
+      ],
+      placed: ringSpaces.slice(0, 5).map((at, i) => ({ at, hex: fillHexes[i] })),
+      storage: [{ kind: 'tile', hex: hx('pattern1', 'color6') }],
+    });
+    const state = makeState([p, makePlayer('p2')]);
+    const next = applyAction(state, {
+      type: 'PlaceTile',
+      playerId: 'p1',
+      hex: hx('pattern1', 'color6'),
+      at: ringSpaces[5],
+      payment: [],
+    });
+    expect(countJokers(next.players[0])).toBe(2);
+  });
+
+  it('legal moves never target feature hexes', () => {
+    const p = makePlayer('p1', {
+      spaces: fountainBoardSpaces(),
+      storage: [{ kind: 'tile', hex: hx('pattern1', 'color1') }],
+    });
+    const state = makeState([p, makePlayer('p2')]);
+    const featureKeys = new Set(
+      fountainBoardSpaces()
+        .filter((s) => s.feature)
+        .map((s) => `${s.at.q},${s.at.r}`),
+    );
+    const moves = generateLegalMoves(state, 'p1');
+    const placeMoves = moves.filter((m) => m.type === 'PlaceTile');
+    expect(placeMoves.length).toBe(6); // exactly the 6 ring-1 spaces
+    for (const m of placeMoves) {
+      if (m.type !== 'PlaceTile') continue;
+      expect(featureKeys.has(`${m.at.q},${m.at.r}`)).toBe(false);
+    }
   });
 });
 
@@ -615,7 +735,7 @@ describe('applyAction: Acquire', () => {
     const stackTop = {
       id: 'cov',
       hex: hx('pattern5', 'color5'),
-      spaces: 5 as const,
+      spaces: 7 as const,
       feature: 'pavilion' as const,
       tiles: [hx('pattern1', 'color1'), hx('pattern3', 'color3')],
       faceUp: false,
@@ -654,7 +774,7 @@ describe('applyAction: Acquire', () => {
     const ext = {
       id: 'ext',
       hex: hx('pattern5', 'color5'),
-      spaces: 5 as const,
+      spaces: 7 as const,
       feature: 'pavilion' as const,
       tiles: [hx('pattern1', 'color1')],
       faceUp: false,
@@ -712,7 +832,7 @@ describe('garden expansions', () => {
   const faceUpExp = (id: string, hex: Hexagon) => ({
     id,
     hex,
-    spaces: 5 as const,
+    spaces: 7 as const,
     feature: 'pavilion' as const,
     tiles: [] as Hexagon[],
     faceUp: true,
@@ -781,7 +901,7 @@ describe('garden expansions', () => {
     const p = makePlayer('p1', {
       spaces: [{ at: { q: 0, r: 0 } }],
       expansionStore: [
-        { id: 'e1', spaces: 5, hex: hx('pattern2', 'color1'), faceDown: false },
+        { id: 'e1', spaces: 7, hex: hx('pattern2', 'color1'), faceDown: false },
       ],
       storage: [{ kind: 'joker' }],
     });
@@ -791,6 +911,8 @@ describe('garden expansions', () => {
       { q: 1, r: 1 },
       { q: 2, r: -1 },
       { q: 3, r: 0 },
+      { q: 2, r: 1 },
+      { q: 3, r: -1 },
     ];
     const state = makeState([p, makePlayer('p2')]);
     const next = applyAction(state, {
@@ -803,7 +925,7 @@ describe('garden expansions', () => {
       payment: [{ kind: 'joker' }], // pattern2 cost 2 -> 1 additional item
     });
     const np = next.players[0];
-    expect(np.spaces.length).toBe(6); // 1 + 5
+    expect(np.spaces.length).toBe(8); // 1 + 7
     expect(np.spaces.some((s) => s.feature === 'pavilion')).toBe(true);
     expect(np.placed.length).toBe(1); // the printed hexagon
     expect(np.storage.length).toBe(0); // joker spent
@@ -813,7 +935,7 @@ describe('garden expansions', () => {
   it('rejects expansion placement that does not touch the garden or overlaps it', () => {
     const p = makePlayer('p1', {
       spaces: [{ at: { q: 0, r: 0 } }],
-      expansionStore: [{ id: 'e1', spaces: 5, faceDown: true }],
+      expansionStore: [{ id: 'e1', spaces: 7, faceDown: true }],
     });
     const state = makeState([p, makePlayer('p2')]);
     const detached = [
@@ -822,6 +944,8 @@ describe('garden expansions', () => {
       { q: 7, r: 5 },
       { q: 5, r: 6 },
       { q: 6, r: 6 },
+      { q: 7, r: 6 },
+      { q: 6, r: 7 },
     ];
     expect(() =>
       applyAction(state, {
@@ -837,6 +961,8 @@ describe('garden expansions', () => {
       { q: 2, r: 0 },
       { q: 0, r: 1 },
       { q: 1, r: 1 },
+      { q: 2, r: 1 },
+      { q: 3, r: 0 },
     ];
     expect(() =>
       applyAction(state, {
@@ -903,7 +1029,7 @@ describe('garden expansions', () => {
     const p = makePlayer('p1', {
       score: 15,
       spaces: [{ at: { q: 0, r: 0 } }],
-      expansionStore: [{ id: 'e1', spaces: 5, faceDown: true }],
+      expansionStore: [{ id: 'e1', spaces: 7, faceDown: true }],
     });
     const state = makeState([p, makePlayer('p2')], { expansionSupply: 2 });
     const moves = generateLegalMoves(state, 'p1');

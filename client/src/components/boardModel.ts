@@ -44,7 +44,8 @@ export interface PlacedTile {
 /** A garden-expansion (flower bed) held in a player's storage. */
 export interface HeldBed {
   readonly id: string;
-  readonly spaces: 5 | 7;
+  /** All flower beds are 7-hex pieces. */
+  readonly spaces: 7;
   /** True for blank pieces bought face-down from the supply. */
   readonly faceDown: boolean;
   /** Printed hexagon (face-up pieces only). */
@@ -94,7 +95,7 @@ export interface Factory {
 /** A flower-bed expansion visible in the central display. */
 export interface DisplayBed {
   readonly id: string;
-  readonly spaces: 5 | 7;
+  readonly spaces: 7;
   /** Face up = revealed (gazebo + 1 printed tile), draftable. */
   readonly faceUp: boolean;
   readonly printedTile?: Tile;

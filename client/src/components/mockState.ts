@@ -42,41 +42,53 @@ function factory(id: string, defs: [TileColor, PatternId][]): Factory {
 
 /**
  * The 13-hex fountain board every player starts with: central birdbath
- * (fountain) feature + 12 tile spaces (ring 1 + 6 of ring 2). Mirrors the
- * engine's `fountainBoardSpaces`.
+ * (fountain) feature, 6 empty tile spaces (ring 1), and 6 printed features
+ * (3 garden gnomes + 3 potting tables alternating on the ring-2 star points).
+ * Mirrors the engine's `fountainBoardSpaces`.
  */
 function fountainBoard(): PlotSpace[] {
   const out: PlotSpace[] = [
     { at: { row: 0, col: 0 }, feature: 'birdbath', piece: 'fountain' },
   ];
+  // ring 1: the 6 empty placeable spaces (axial q=col, r=row)
   const ring1 = [
     { row: 0, col: 1 },
-    { row: -1, col: 1 },
-    { row: -1, col: 0 },
-    { row: 0, col: -1 },
-    { row: 1, col: -1 },
     { row: 1, col: 0 },
+    { row: 1, col: -1 },
+    { row: 0, col: -1 },
+    { row: -1, col: 0 },
+    { row: -1, col: 1 },
   ];
-  const ring2 = [
-    { row: -2, col: 0 },
-    { row: -2, col: 1 },
-    { row: -2, col: 2 },
-    { row: -1, col: -1 },
+  for (const at of ring1) out.push({ at, piece: 'fountain' });
+  // alternating ring-2 star points: gnome (statue) / potting table (bench)
+  const featureRing = [
     { row: -1, col: 2 },
-    { row: 0, col: -2 },
+    { row: 1, col: 1 },
+    { row: 2, col: -1 },
+    { row: 1, col: -2 },
+    { row: -1, col: -1 },
+    { row: -2, col: 1 },
   ];
-  for (const at of [...ring1, ...ring2]) out.push({ at, piece: 'fountain' });
+  featureRing.forEach((at, i) =>
+    out.push({
+      at,
+      piece: 'fountain',
+      feature: i % 2 === 0 ? 'gardenGnome' : 'pottingTable',
+    }),
+  );
   return out;
 }
 
-/** Mid-game: player 0 has attached a 5-space bed (gazebo + spaces). */
+/** Mid-game: player 0 has attached a 7-space bed (gazebo + spaces). */
 function bedSpaces(): PlotSpace[] {
   return [
     { at: { row: 0, col: 2 }, feature: 'gazebo', piece: 'bedA' },
     { at: { row: 0, col: 3 }, piece: 'bedA' },
-    { at: { row: 1, col: 1 }, piece: 'bedA' },
     { at: { row: 1, col: 2 }, piece: 'bedA' },
+    { at: { row: 1, col: 3 }, piece: 'bedA' },
     { at: { row: -1, col: 3 }, piece: 'bedA' },
+    { at: { row: -1, col: 4 }, piece: 'bedA' },
+    { at: { row: 0, col: 4 }, piece: 'bedA' },
   ];
 }
 
@@ -84,9 +96,9 @@ function bedSpaces(): PlotSpace[] {
 const player0Board: PlacedTile[] = [
   { tile: mkTile('green', 'sapling'), at: { row: 0, col: 1 } },
   { tile: mkTile('green', 'robin'), at: { row: 0, col: -1 } },
-  { tile: mkTile('purple', 'robin'), at: { row: -1, col: -1 } },
+  { tile: mkTile('purple', 'robin'), at: { row: -1, col: 0 } },
   { tile: mkTile('purple', 'ladybug'), at: { row: 1, col: -1 } },
-  { tile: mkTile('blue', 'sapling'), at: { row: 1, col: 1 } },
+  { tile: mkTile('blue', 'sapling'), at: { row: 1, col: 0 } },
 ];
 
 const player1Board: PlacedTile[] = [
@@ -182,7 +194,7 @@ const center: Tile[] = [
 const MOCK_DISPLAY_BEDS: DisplayBed[] = [
   {
     id: 'db1',
-    spaces: 5,
+    spaces: 7,
     faceUp: true,
     printedTile: mkTile('blue', 'sunflower'),
   },

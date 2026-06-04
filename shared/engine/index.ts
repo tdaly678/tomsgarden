@@ -16,6 +16,7 @@ export * from './rng.js';
 export {
   IllegalMoveError,
   setupGame,
+  fountainBoardSpaces,
   generateLegalMoves,
   applyAction,
   scoreRound,

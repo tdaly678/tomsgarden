@@ -109,44 +109,41 @@ function buildBag(): Hexagon[] {
 }
 
 /**
- * The fountain board: a central `fountain` feature ringed by 12 tile spaces =
- * 13 hex spaces total (rules.startingSetup.fountainBoardGeometry.hexSpaces).
+ * The fountain board (13 hexes, symmetric flower/star — owner-confirmed,
+ * rules.startingSetup.fountainBoardGeometry):
+ *  - 1 central `fountain` feature at (0,0)
+ *  - 6 EMPTY placeable spaces (ring 1)
+ *  - 6 printed features at the alternating ring-2 positions: 3 statues and
+ *    3 benches, alternating around the ring; each touches two ring-1 spaces.
  * This is the ONLY garden piece a player starts with; everything else grows
  * by attaching garden expansions.
  */
-function fountainBoardSpaces(): GardenSpace[] {
+export function fountainBoardSpaces(): GardenSpace[] {
   const center: Axial = { q: 0, r: 0 };
   const spaces: GardenSpace[] = [{ at: center, feature: 'fountain' }];
   // ring 1 (6 spaces) — all placeable
   for (const n of neighbors(center)) {
     spaces.push({ at: n });
   }
-  // ring 2 (12 spaces) but we only need 6 more to reach 13 total hexes.
-  const ring2 = ring2Coords();
-  for (let i = 0; i < 6; i++) {
-    spaces.push({ at: ring2[i] });
-  }
+  // 6 alternating ring-2 feature positions: statue/bench alternating.
+  const featureRing: Axial[] = [
+    { q: 2, r: -1 },
+    { q: 1, r: 1 },
+    { q: -1, r: 2 },
+    { q: -2, r: 1 },
+    { q: -1, r: -1 },
+    { q: 1, r: -2 },
+  ];
+  featureRing.forEach((at, i) => {
+    spaces.push({ at, feature: i % 2 === 0 ? 'statue' : 'bench' });
+  });
   return spaces;
-}
-
-function ring2Coords(): Axial[] {
-  // Hexes at distance 2 from origin, ordered deterministically.
-  const out: Axial[] = [];
-  for (let q = -2; q <= 2; q++) {
-    for (let r = -2; r <= 2; r++) {
-      const s = -q - r;
-      const dist = (Math.abs(q) + Math.abs(r) + Math.abs(s)) / 2;
-      if (dist === 2) out.push({ q, r });
-    }
-  }
-  return out;
 }
 
 /**
  * Build the 36 garden expansions, each pre-assigned (deterministically) the
- * face it will reveal when flipped: a pavilion + one printed hexagon. The
- * 5/7-space split is _unconfirmed in rules.json; we use 12 five-space and
- * 24 seven-space pieces (flagged for art verification).
+ * face it will reveal when flipped: a pavilion + one printed hexagon. ALL 36
+ * expansions are 7-hex pieces (owner/Zatu-confirmed; rules.gardenExpansions).
  */
 function buildExpansionDeck(rng: ReturnType<typeof makeRng>): DisplayExpansion[] {
   const out: DisplayExpansion[] = [];
@@ -158,7 +155,7 @@ function buildExpansionDeck(rng: ReturnType<typeof makeRng>): DisplayExpansion[]
     out.push({
       id: `exp-${i}`,
       hex,
-      spaces: i % 3 === 0 ? 5 : 7,
+      spaces: 7,
       feature: 'pavilion',
       tiles: [],
       faceUp: false,
@@ -389,20 +386,33 @@ function wouldGroupContainDuplicates(
   return false;
 }
 
-/** All feature spaces fully surrounded *after* a hypothetical placement set. */
+/**
+ * All feature spaces fully surrounded *after* a hypothetical placement set.
+ *
+ * A feature is surrounded when ALL 6 of its hex neighbours are occupied: a
+ * neighbour counts as occupied if it holds a placed tile OR is itself a
+ * feature space. Off-board neighbours (no garden space exists there yet) are
+ * NOT occupied — features at the garden's edge only become surroundable once
+ * expansions attach around them and their spaces are filled.
+ */
 function newlySurroundedFeatures(
   before: PlayerEngineState,
   afterPlaced: PlacedHex[],
 ): FeatureType[] {
   const placedKeys = new Set(afterPlaced.map((x) => axialKey(x.at)));
   const beforeKeys = new Set(before.placed.map((x) => axialKey(x.at)));
+  const occupied = (n: Axial, keys: Set<string>): boolean => {
+    const sp = spaceAt(before, n);
+    if (!sp) return false; // off-board
+    if (sp.feature) return true; // adjacent feature hex counts as occupied
+    return keys.has(axialKey(n));
+  };
   const out: FeatureType[] = [];
   for (const s of before.spaces) {
     if (!s.feature) continue;
-    const ring = neighbors(s.at).filter((n) => spaceAt(before, n));
-    if (ring.length === 0) continue;
-    const allFilledNow = ring.every((n) => placedKeys.has(axialKey(n)));
-    const allFilledBefore = ring.every((n) => beforeKeys.has(axialKey(n)));
+    const ring = neighbors(s.at);
+    const allFilledNow = ring.every((n) => occupied(n, placedKeys));
+    const allFilledBefore = ring.every((n) => occupied(n, beforeKeys));
     if (allFilledNow && !allFilledBefore) out.push(s.feature);
   }
   return out;
@@ -599,7 +609,7 @@ export function generateLegalMoves(
 
   // C-alt) Buy a face-down supply expansion for 6 points.
   if (state.expansionSupply > 0 && p.score >= SUPPLY_EXPANSION_COST) {
-    const placements = expansionPlacements(p, SUPPLY_EXPANSION_SPACES as 5 | 7);
+    const placements = expansionPlacements(p, SUPPLY_EXPANSION_SPACES);
     if (placements.length > 0) {
       moves.push({ type: 'BuyExpansion', playerId, cells: placements[0] });
     }

@@ -108,7 +108,8 @@ export interface PlayerEngineState {
 export interface DisplayExpansion {
   readonly id: string;
   readonly hex: Hexagon;
-  readonly spaces: 5 | 7;
+  /** All garden expansions are 7-hex pieces (owner/Zatu-confirmed). */
+  readonly spaces: 7;
   readonly feature: 'pavilion';
   /** Loose tiles currently sitting on this expansion in the display. */
   readonly tiles: Hexagon[];
@@ -129,7 +130,7 @@ export interface DisplayExpansion {
  */
 export interface HeldExpansion {
   readonly id: string;
-  readonly spaces: 5 | 7;
+  readonly spaces: 7;
   /** Printed hexagon (face-up pieces only). */
   readonly hex?: Hexagon;
   /** True for blank pieces bought from the face-down supply. */

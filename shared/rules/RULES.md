@@ -26,7 +26,7 @@ confirmed from the rulebook text are flagged **[UNCONFIRMED]** here and in `rule
   - pattern4 (flower) = **4**
   - pattern5 = **5**
   - pattern6 = **6**
-- **36 garden expansions** (confirmed count, setup step 5). Double-sided hex pieces: face DOWN = blank spaces; face UP = a **pavilion** in the center + **one** printed hexagon. Each provides **5 or 7** extra tile spaces when placed (confirmed, Action C). **[UNCONFIRMED]**: the 5-space vs 7-space split among the 36, and the distribution of any extra printed features (statues/benches) across them — verify from component photos. Face-down supply expansions are explicitly **7-space**.
+- **36 garden expansions** (confirmed count, setup step 5). Double-sided hex pieces, **ALL 7 hexagons each** (confirmed by the game owner; Zatu: fountain boards are "13 hexagons instead of 7"). Face DOWN = 7 blank spaces; face UP = a **pavilion** center + **one** printed hexagon + 5 free spaces. Statues/benches are printed on the fountain board, not on expansions.
 - **Jokers** (wild/grey): each player starts with **3**. Supply is effectively unlimited.
 - Per player: 1 garden board, 1 storage, 1 **fountain board** (the large 13-hex central piece), 1 scoring marker.
 - Shared: scoring board, **rotary wheel** (2 sides for variability), evaluation marker, first-player marker, tower, point tokens.
@@ -36,11 +36,11 @@ confirmed from the rulebook text are flagged **[UNCONFIRMED]** here and in `rule
 ### Starting state — players start FROM SCRATCH (confirmed, rulebook p.2)
 
 Each player begins with:
-- **1 fountain board** — the ONLY garden piece at game start, placed in the middle of their (otherwise empty) garden. It has **13 hexagon tile spaces** and a printed **fountain** feature. **[UNCONFIRMED detail]**: the exact arrangement of the 13 hexes around the fountain art, and whether any other feature is printed on it, must be taken from board photos.
+- **1 fountain board** — the ONLY garden piece at game start, placed in the middle of their (otherwise empty) garden. Its **13 hexagons** (owner-confirmed) are: 1 central **fountain** feature, **6 empty placeable tile spaces** (ring 1), and **6 printed features** — **3 statues + 3 benches**, alternating around the ring-2 star points (each feature touches two ring-1 spaces). Engine axial layout: fountain (0,0); empty (1,0),(0,1),(-1,1),(-1,0),(0,-1),(1,-1); features (2,-1),(1,1),(-1,2),(-2,1),(-1,-1),(1,-2). The statue/bench ordering around the ring is a best-reconstruction of the physical art (feature counts owner-confirmed). Surrounding the fountain = filling the 6 ring-1 spaces; statues/benches become surroundable as expansions attach around them.
 - **3 jokers** in storage. Nothing else: **0 tiles**, **0 expansions**, **no other garden pieces**.
 - Scoring marker on space **15** of the scoring track (so the 6-point face-down-expansion buy is affordable early).
 
-The garden then **grows during play** by attaching garden expansions (5- or 7-space pieces) around the fountain board — drafted from the display, or bought face-down from the supply for 6 points. The implemented game must NOT pre-place expansions or tiles.
+The garden then **grows during play** by attaching garden expansions (7-space pieces) around the fountain board — drafted from the display, or bought face-down from the supply for 6 points. The implemented game must NOT pre-place expansions or tiles.
 
 1. Each player takes a garden board, a storage, a fountain board (placed in the middle of their garden), and **3 jokers** on empty storage spaces.
 2. Place the scoring board with rotary wheel set to its starting quadrant. Evaluation marker at top of evaluation track.
@@ -99,7 +99,7 @@ You may **never** make two identical hexagons (same pattern AND color) adjacent.
 
 **Surrounding a feature.** If placing fully surrounds a **fountain, statue, bench, or pavilion**, immediately gain jokers from the supply (per the surrounded element) into storage; excess jokers are lost.
 - **Pavilion = 3 jokers** (best confirmation available: The Tabletop Crier review — "Pavilions were the best at three joker tokens").
-- **[UNCONFIRMED]** fountain/statue/bench exact joker counts (printed on the bottom-left of the player board, not in rulebook text). Current `rules.json` values: fountain 1, statue 2, bench 2 — best-guess given pavilion is the maximum (3); verify against player-board art.
+- **Confirmed (game owner):** fountain = **1** joker, statue = **2**, bench = **2**, pavilion = **3**.
 
 ### C) Place a garden expansion
 Either:

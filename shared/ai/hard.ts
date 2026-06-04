@@ -31,7 +31,7 @@ const ROOT_CAP = 22; // root candidates expanded fully
 const CHILD_CAP = 12; // own follow-up moves per candidate
 const OPP_MOVES_CAP = 12; // opponent moves sampled for denial modeling
 const FOLLOWUP_DISCOUNT = 0.65;
-const DENIAL_WEIGHT = 0.3;
+const DENIAL_WEIGHT = 0.15;
 
 /** Risk-adjusted weights: leading => realize points; behind => speculate. */
 function postureWeights(
@@ -45,7 +45,7 @@ function postureWeights(
   const lead = (me?.score ?? 0) - bestOpp;
   const progress = (state.round - 1) / (ROUNDS - 1); // 0..1
   // shift in [-1, 1]: positive = behind late (gamble), negative = ahead late (safe)
-  const shift = Math.max(-1, Math.min(1, -lead / 12)) * progress;
+  const shift = Math.max(-1, Math.min(1, -lead / 24)) * progress * 0.5;
   return {
     ...DEFAULT_WEIGHTS,
     finalPotential: DEFAULT_WEIGHTS.finalPotential * (1 + 0.5 * shift),
@@ -124,7 +124,7 @@ export const HardBot: Bot = {
       try {
         const next = applyAction(state, move);
         let value = evaluatePlayer(next, playerId, w);
-        if (move.type === 'Pass') value -= 1.0; // hold turns while options exist
+        if (move.type === 'Pass') value -= 0.75; // hold turns while options exist
         staged.push({ move, next, value });
       } catch {
         /* skip */
