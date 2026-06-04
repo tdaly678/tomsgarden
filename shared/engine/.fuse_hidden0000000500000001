@@ -11,10 +11,7 @@ import {
   scoreFinalForPlayer,
   scoreRound,
   scoreRoundForPlayer,
-  pickCanonicalPayment,
-  pickExpansionPayment,
   setupGame,
-  validateExpansionPayment,
   validatePayment,
 } from './index.js';
 import type { EngineGameState, Hexagon, PlayerEngineState } from './model.js';

@@ -32,6 +32,34 @@ export type Payment =
   | { readonly kind: 'tile'; readonly hex: Hexagon }
   | { readonly kind: 'joker' };
 
+/**
+ * C) Place a garden expansion from expansion storage into the garden.
+ *
+ * `cells` are the axial coordinates the piece will occupy (must equal the
+ * piece's size, be connected, not overlap existing garden spaces, and touch
+ * the existing garden). For face-up pieces, `featureAt` marks the pavilion
+ * cell and `printedAt` marks the cell holding the printed hexagon; `payment`
+ * covers the printed hexagon's additional cost (cost - 1 items, set rule with
+ * the printed hex, jokers wild). Face-down (blank) pieces need none of these.
+ */
+export interface PlaceExpansionAction {
+  readonly type: 'PlaceExpansion';
+  readonly playerId: string;
+  readonly expansionId: string;
+  readonly cells: Axial[];
+  readonly featureAt?: Axial;
+  readonly printedAt?: Axial;
+  readonly payment?: Payment[];
+}
+
+/** C-alt) Buy a face-down supply expansion for exactly 6 points and place it. */
+export interface BuyExpansionAction {
+  readonly type: 'BuyExpansion';
+  readonly playerId: string;
+  /** The 7 blank cells the piece will occupy. */
+  readonly cells: Axial[];
+}
+
 /** D) Pass. Optionally discard storage hexagons for MINUS points (cleanup). */
 export interface PassAction {
   readonly type: 'Pass';
@@ -40,4 +68,9 @@ export interface PassAction {
   readonly discard?: Hexagon[];
 }
 
-export type EngineAction = AcquireAction | PlaceTileAction | PassAction;
+export type EngineAction =
+  | AcquireAction
+  | PlaceTileAction
+  | PlaceExpansionAction
+  | BuyExpansionAction
+  | PassAction;

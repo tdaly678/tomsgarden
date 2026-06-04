@@ -95,7 +95,7 @@ export interface PlayerEngineState {
   /** Storage: hexagon tiles + jokers (max 12 combined). */
   readonly storage: StorageItem[];
   /** Garden-expansion pieces held in storage, not yet placed (max 2). */
-  readonly expansionStore: number;
+  readonly expansionStore: HeldExpansion[];
   /** Whether this player has passed in the current round's Phase 1. */
   readonly passed: boolean;
 }
@@ -116,6 +116,20 @@ export interface DisplayExpansion {
   readonly faceUp: boolean;
 }
 
+/**
+ * A garden expansion held in a player's expansion storage (max 2) or bought
+ * face-down from the supply. Face-up pieces carry a pavilion + 1 printed
+ * hexagon; face-down (supply) pieces are 7 blank spaces.
+ */
+export interface HeldExpansion {
+  readonly id: string;
+  readonly spaces: 5 | 7;
+  /** Printed hexagon (face-up pieces only). */
+  readonly hex?: Hexagon;
+  /** True for blank pieces bought from the face-down supply. */
+  readonly faceDown: boolean;
+}
+
 export interface EngineGameState {
   readonly roomId: string;
   readonly phase: 'lobby' | 'drafting' | 'scoring' | 'finished';
@@ -129,6 +143,14 @@ export interface EngineGameState {
   readonly displayTiles: Hexagon[];
   /** Garden expansions in the display. */
   readonly displayExpansions: DisplayExpansion[];
+  /**
+   * The 4 face-down round stacks of garden expansions (index 0 = round 1).
+   * During a round, expansions are moved from the current round's stack into
+   * the display as tile-acquires trigger refills.
+   */
+  readonly expansionStacks: DisplayExpansion[][];
+  /** Face-down supply expansions (7 blank spaces each, buyable for 6 points). */
+  readonly expansionSupply: number;
   /** Tile bag (ordered; draw from the end). */
   readonly bag: Hexagon[];
   /** Whether the first-pass penalty has already been taken this round. */

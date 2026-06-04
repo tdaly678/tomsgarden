@@ -118,7 +118,7 @@ export const FEATURES: Record<FeatureId, FeatureMeta> = {
     id: 'birdbath',
     label: 'Birdbath',
     glyph: '⛲',
-    wildseedsWhenSurrounded: 3,
+    wildseedsWhenSurrounded: 1,
   },
   gardenGnome: {
     id: 'gardenGnome',
@@ -130,13 +130,13 @@ export const FEATURES: Record<FeatureId, FeatureMeta> = {
     id: 'pottingTable',
     label: 'Potting Table',
     glyph: '🪴',
-    wildseedsWhenSurrounded: 1,
+    wildseedsWhenSurrounded: 2,
   },
   gazebo: {
     id: 'gazebo',
     label: 'Gazebo',
     glyph: '⛩️',
-    wildseedsWhenSurrounded: 1,
+    wildseedsWhenSurrounded: 3,
   },
 };
 

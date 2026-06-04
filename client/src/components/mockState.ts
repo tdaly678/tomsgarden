@@ -4,10 +4,12 @@
  */
 
 import type {
+  DisplayBed,
   Factory,
   GameState,
   PlacedTile,
   PlayerState,
+  PlotSpace,
   Tile,
   TileColor,
 } from './boardModel';
@@ -38,6 +40,46 @@ function factory(id: string, defs: [TileColor, PatternId][]): Factory {
   return { id, tiles: defs.map(([c, p]) => mkTile(c, p)) };
 }
 
+/**
+ * The 13-hex fountain board every player starts with: central birdbath
+ * (fountain) feature + 12 tile spaces (ring 1 + 6 of ring 2). Mirrors the
+ * engine's `fountainBoardSpaces`.
+ */
+function fountainBoard(): PlotSpace[] {
+  const out: PlotSpace[] = [
+    { at: { row: 0, col: 0 }, feature: 'birdbath', piece: 'fountain' },
+  ];
+  const ring1 = [
+    { row: 0, col: 1 },
+    { row: -1, col: 1 },
+    { row: -1, col: 0 },
+    { row: 0, col: -1 },
+    { row: 1, col: -1 },
+    { row: 1, col: 0 },
+  ];
+  const ring2 = [
+    { row: -2, col: 0 },
+    { row: -2, col: 1 },
+    { row: -2, col: 2 },
+    { row: -1, col: -1 },
+    { row: -1, col: 2 },
+    { row: 0, col: -2 },
+  ];
+  for (const at of [...ring1, ...ring2]) out.push({ at, piece: 'fountain' });
+  return out;
+}
+
+/** Mid-game: player 0 has attached a 5-space bed (gazebo + spaces). */
+function bedSpaces(): PlotSpace[] {
+  return [
+    { at: { row: 0, col: 2 }, feature: 'gazebo', piece: 'bedA' },
+    { at: { row: 0, col: 3 }, piece: 'bedA' },
+    { at: { row: 1, col: 1 }, piece: 'bedA' },
+    { at: { row: 1, col: 2 }, piece: 'bedA' },
+    { at: { row: -1, col: 3 }, piece: 'bedA' },
+  ];
+}
+
 // A small starter cluster on player 0's garden (legal adjacency).
 const player0Board: PlacedTile[] = [
   { tile: mkTile('green', 'sapling'), at: { row: 0, col: 1 } },
@@ -62,6 +104,15 @@ const players: PlayerState[] = [
     hand: [mkTile('green', 'ladybug'), mkTile('blue', 'robin'), mkWildseed()],
     board: player0Board,
     floor: [mkTile('orange', 'snail')],
+    spaces: [...fountainBoard(), ...bedSpaces()],
+    beds: [
+      {
+        id: 'held-1',
+        spaces: 7,
+        faceDown: false,
+        printedTile: mkTile('red', 'robin'),
+      },
+    ],
   },
   {
     id: 'p1',
@@ -71,6 +122,8 @@ const players: PlayerState[] = [
     hand: [mkWildseed(), mkWildseed()],
     board: player1Board,
     floor: [],
+    spaces: fountainBoard(),
+    beds: [],
   },
   {
     id: 'p2',
@@ -80,6 +133,8 @@ const players: PlayerState[] = [
     hand: [],
     board: [{ tile: mkTile('orange', 'beehive'), at: { row: 0, col: 1 } }],
     floor: [],
+    spaces: fountainBoard(),
+    beds: [{ id: 'held-2', spaces: 7, faceDown: true }],
   },
 ];
 
@@ -124,6 +179,16 @@ const center: Tile[] = [
   mkWildseed(),
 ];
 
+const MOCK_DISPLAY_BEDS: DisplayBed[] = [
+  {
+    id: 'db1',
+    spaces: 5,
+    faceUp: true,
+    printedTile: mkTile('blue', 'sunflower'),
+  },
+  { id: 'db2', spaces: 7, faceUp: false },
+];
+
 export const MOCK_STATE: GameState = {
   roomId: 'demo',
   phase: 'placing',
@@ -132,6 +197,8 @@ export const MOCK_STATE: GameState = {
   activePlayerIndex: 0,
   factories,
   center,
+  displayBeds: MOCK_DISPLAY_BEDS,
+  supplyCount: 14,
   bagCount: 73,
   winnerId: null,
 };

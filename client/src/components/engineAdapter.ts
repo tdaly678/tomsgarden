@@ -25,8 +25,11 @@ import type { Action as EngineAction } from '@tomsgarden/shared';
 import type {
   Action as BoardAction,
   Coord,
+  DisplayBed,
   GameState as BoardGameState,
+  HeldBed,
   PlayerState as BoardPlayer,
+  PlotSpace,
   TileColor,
   Tile as BoardTile,
 } from './boardModel';
@@ -119,6 +122,14 @@ function axialToCoord(a: { q: number; r: number }): Coord {
   return { row: a.r, col: a.q };
 }
 
+/** Engine feature ids -> themed board feature ids. */
+const FEATURE_TO_BOARD: Record<string, string> = {
+  fountain: 'birdbath',
+  statue: 'gardenGnome',
+  bench: 'pottingTable',
+  pavilion: 'gazebo',
+};
+
 function toBoardPlayer(p: PlayerEngineState): BoardPlayer {
   let seq = 0;
   const hand: BoardTile[] = p.storage.map((item: StorageItem) =>
@@ -130,6 +141,17 @@ function toBoardPlayer(p: PlayerEngineState): BoardPlayer {
     tile: hexToBoardTile(ph.hex, seq++),
     at: axialToCoord(ph.at),
   }));
+  const spaces: PlotSpace[] = p.spaces.map((s) => ({
+    at: axialToCoord(s.at),
+    feature: s.feature ? FEATURE_TO_BOARD[s.feature] : undefined,
+    piece: 'garden',
+  }));
+  const beds: HeldBed[] = p.expansionStore.map((e) => ({
+    id: e.id,
+    spaces: e.spaces,
+    faceDown: e.faceDown,
+    printedTile: e.hex ? hexToBoardTile(e.hex, seq++) : undefined,
+  }));
   return {
     id: p.id,
     name: p.name,
@@ -138,6 +160,8 @@ function toBoardPlayer(p: PlayerEngineState): BoardPlayer {
     hand,
     board,
     floor: [],
+    spaces,
+    beds,
   };
 }
 
@@ -160,6 +184,12 @@ export function toBoardState(engine: EngineGameState): BoardGameState {
     id: exp.id,
     tiles: exp.tiles.map((hex) => hexToBoardTile(hex, seq++)),
   }));
+  const displayBeds: DisplayBed[] = engine.displayExpansions.map((exp) => ({
+    id: exp.id,
+    spaces: exp.spaces,
+    faceUp: exp.faceUp,
+    printedTile: exp.faceUp ? hexToBoardTile(exp.hex, seq++) : undefined,
+  }));
 
   return {
     roomId: engine.roomId,
@@ -169,6 +199,8 @@ export function toBoardState(engine: EngineGameState): BoardGameState {
     activePlayerIndex: engine.activePlayerIndex,
     factories,
     center,
+    displayBeds,
+    supplyCount: engine.expansionSupply,
     bagCount: engine.bag.length,
     winnerId: engine.winnerIds[0] ?? null,
   };
@@ -187,6 +219,25 @@ export function toBoardState(engine: EngineGameState): BoardGameState {
  *
  * Returns null when the intent cannot be expressed (caller should ignore).
  */
+/** Engine Payment item shape (mirrors shared/engine/actions). */
+type EnginePayment =
+  | { kind: 'joker' }
+  | { kind: 'tile'; hex: Hexagon };
+
+/** Translate board payment tile ids into the engine's Payment[] wire shape. */
+export function decodePayment(ids: readonly string[] | undefined): EnginePayment[] {
+  const out: EnginePayment[] = [];
+  for (const id of ids ?? []) {
+    if (id.startsWith('joker:')) {
+      out.push({ kind: 'joker' });
+      continue;
+    }
+    const hex = decodeHexFromTileId(id);
+    if (hex) out.push({ kind: 'tile', hex });
+  }
+  return out;
+}
+
 export function toEngineAction(action: BoardAction): EngineAction | null {
   switch (action.type) {
     case 'DraftTiles': {
@@ -206,7 +257,39 @@ export function toEngineAction(action: BoardAction): EngineAction | null {
         playerId: action.playerId,
         hex,
         at: { q: action.at.col, r: action.at.row },
-        payment: [],
+        payment: decodePayment(action.payment),
+      };
+    }
+    case 'AcquireBed': {
+      // Acquiring an expansion = declaring its printed hexagon's pattern.
+      const hex = decodeHexFromTileId(action.printedTileId);
+      if (!hex) return null;
+      return {
+        type: 'Acquire',
+        playerId: action.playerId,
+        select: { by: 'pattern', pattern: hex.pattern },
+      };
+    }
+    case 'PlaceBed': {
+      return {
+        type: 'PlaceExpansion',
+        playerId: action.playerId,
+        expansionId: action.bedId,
+        cells: action.cells.map((c) => ({ q: c.col, r: c.row })),
+        featureAt: action.featureAt
+          ? { q: action.featureAt.col, r: action.featureAt.row }
+          : undefined,
+        printedAt: action.printedAt
+          ? { q: action.printedAt.col, r: action.printedAt.row }
+          : undefined,
+        payment: decodePayment(action.payment),
+      };
+    }
+    case 'BuyBed': {
+      return {
+        type: 'BuyExpansion',
+        playerId: action.playerId,
+        cells: action.cells.map((c) => ({ q: c.col, r: c.row })),
       };
     }
     case 'DiscardToFloor': {

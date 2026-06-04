@@ -12,6 +12,8 @@ interface ShedProps {
   tiles: TileT[];
   /** Wildseeds (wildcard tiles) within the held tiles are counted here too. */
   pendingTileId?: string | null;
+  /** Tiles the player can't afford to place right now (rendered dimmed). */
+  unaffordableIds?: Set<string>;
   interactive?: boolean;
   onSelect?: (tile: TileT) => void;
 }
@@ -22,6 +24,7 @@ const BED_SLOTS = 2;
 export function Shed({
   tiles,
   pendingTileId,
+  unaffordableIds,
   interactive,
   onSelect,
 }: ShedProps): React.ReactElement {
@@ -46,6 +49,7 @@ export function Shed({
                   tile={t}
                   size={16}
                   selected={pendingTileId === t.id}
+                  dimmed={unaffordableIds?.has(t.id)}
                   onClick={interactive ? () => onSelect?.(t) : undefined}
                   draggable={interactive}
                   onDragStart={(e) =>

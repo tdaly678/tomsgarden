@@ -28,6 +28,13 @@ interface GardenPlotProps {
   pendingTile?: TileT | null;
   onPlace?: (at: Coord) => void;
   compact?: boolean;
+  /**
+   * Candidate flower-bed attachments to preview (each a set of new cells
+   * around the existing garden). Clicking any cell of a candidate places the
+   * pending bed there.
+   */
+  bedCandidates?: Coord[][];
+  onPlaceBed?: (cells: Coord[]) => void;
 }
 
 export function GardenPlot({
@@ -38,9 +45,18 @@ export function GardenPlot({
   pendingTile,
   onPlace,
   compact,
+  bedCandidates,
+  onPlaceBed,
 }: GardenPlotProps): React.ReactElement {
   const size = compact ? HEX_SIZE * 0.55 : HEX_SIZE;
-  const b = plotBounds(spaces, size);
+  const ghostSpaces =
+    bedCandidates?.flatMap((cells, ci) =>
+      cells.map((at) => ({ at, candidate: ci })),
+    ) ?? [];
+  const b = plotBounds(
+    [...spaces, ...ghostSpaces.map((g) => ({ at: g.at, piece: 'ghost' }))],
+    size,
+  );
   const placedMap = new Map(placed.map((p) => [coordKey(p.at), p]));
 
   return (
@@ -127,6 +143,27 @@ export function GardenPlot({
           </g>
         );
       })}
+
+      {/* Ghost cells previewing bed attachment candidates */}
+      {bedCandidates &&
+        ghostSpaces.map((g) => {
+          const center = axialToPixel(g.at, size);
+          return (
+            <g
+              key={`ghost-${coordKey(g.at)}-${g.candidate}`}
+              className="tg-space is-ghost is-clickable"
+              onClick={() => onPlaceBed?.(bedCandidates[g.candidate])}
+            >
+              <polygon
+                points={hexCorners(center, size * 0.9)}
+                fill="var(--tg-ghost-bg, rgba(155,230,168,0.18))"
+                stroke="var(--tg-legal, #9be6a8)"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+              />
+            </g>
+          );
+        })}
     </svg>
   );
 }

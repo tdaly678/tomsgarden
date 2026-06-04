@@ -157,6 +157,50 @@ function setFeature(spaces: HexSpace[], at: Coord, feature: FeatureId): void {
   }
 }
 
+/**
+ * Candidate attachments for a flower-bed expansion of `size` spaces: for each
+ * free hex bordering the garden, grow a connected blob of `size` new cells
+ * (BFS outward, never overlapping existing spaces). Mirrors the engine's
+ * `expansionPlacements`. Returns up to `cap` candidates keyed by anchor.
+ */
+export function bedAttachCandidates(
+  spaces: readonly { at: Coord }[],
+  size: number,
+  cap = 12,
+): Coord[][] {
+  const existing = new Set(spaces.map((s) => coordKey(s.at)));
+  const anchors: Coord[] = [];
+  const seen = new Set<string>();
+  for (const s of spaces) {
+    for (const n of neighbors(s.at)) {
+      const k = coordKey(n);
+      if (existing.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      anchors.push(n);
+    }
+  }
+  const out: Coord[][] = [];
+  for (const anchor of anchors) {
+    const cells: Coord[] = [anchor];
+    const cellKeys = new Set<string>([coordKey(anchor)]);
+    const queue: Coord[] = [anchor];
+    while (cells.length < size && queue.length > 0) {
+      const cur = queue.shift()!;
+      for (const n of neighbors(cur)) {
+        if (cells.length >= size) break;
+        const k = coordKey(n);
+        if (existing.has(k) || cellKeys.has(k)) continue;
+        cellKeys.add(k);
+        cells.push(n);
+        queue.push(n);
+      }
+    }
+    if (cells.length === size) out.push(cells);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
 /** Bounding box (in px) of a set of spaces, for SVG viewBox sizing. */
 export function plotBounds(
   spaces: HexSpace[],

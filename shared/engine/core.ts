@@ -9,9 +9,11 @@
 
 import type {
   AcquireAction,
+  BuyExpansionAction,
   EngineAction,
   PassAction,
   Payment,
+  PlaceExpansionAction,
   PlaceTileAction,
 } from './actions.js';
 import {
@@ -24,6 +26,7 @@ import {
   type EngineGameState,
   type FeatureType,
   type GardenSpace,
+  type HeldExpansion,
   type Hexagon,
   type PatternId,
   type PlacedHex,
@@ -47,8 +50,12 @@ import {
   PAVILION_BONUS_PER_ROUND,
   ROUNDS,
   STARTING_SCORE,
+  STACK_SIZE_BY_PLAYERS,
   STORAGE_EXPANSION_SPACES,
   STORAGE_TILE_SPACES,
+  SUPPLY_EXPANSION_COST,
+  SUPPLY_EXPANSION_SPACES,
+  TOTAL_EXPANSIONS,
   WHEEL_BY_ROUND,
 } from './rules-data.js';
 
@@ -102,11 +109,10 @@ function buildBag(): Hexagon[] {
 }
 
 /**
- * The fountain board: a central hex (the birdbath/fountain feature) ringed by
- * 12 tile spaces = 13 hex spaces total (rules.gardenBoard.fountainBoard.hexCount).
- * The center is the `fountain` feature; the 6 immediate neighbours + 6 of the
- * next ring give 12 placeable spaces. We place one `pavilion` feature among the
- * outer ring so the +1/pavilion round bonus and surround-award logic are testable.
+ * The fountain board: a central `fountain` feature ringed by 12 tile spaces =
+ * 13 hex spaces total (rules.startingSetup.fountainBoardGeometry.hexSpaces).
+ * This is the ONLY garden piece a player starts with; everything else grows
+ * by attaching garden expansions.
  */
 function fountainBoardSpaces(): GardenSpace[] {
   const center: Axial = { q: 0, r: 0 };
@@ -136,6 +142,31 @@ function ring2Coords(): Axial[] {
   return out;
 }
 
+/**
+ * Build the 36 garden expansions, each pre-assigned (deterministically) the
+ * face it will reveal when flipped: a pavilion + one printed hexagon. The
+ * 5/7-space split is _unconfirmed in rules.json; we use 12 five-space and
+ * 24 seven-space pieces (flagged for art verification).
+ */
+function buildExpansionDeck(rng: ReturnType<typeof makeRng>): DisplayExpansion[] {
+  const out: DisplayExpansion[] = [];
+  for (let i = 0; i < TOTAL_EXPANSIONS; i++) {
+    const hex: Hexagon = {
+      pattern: PATTERNS[rng.int(PATTERNS.length)],
+      color: COLORS[rng.int(COLORS.length)],
+    };
+    out.push({
+      id: `exp-${i}`,
+      hex,
+      spaces: i % 3 === 0 ? 5 : 7,
+      feature: 'pavilion',
+      tiles: [],
+      faceUp: false,
+    });
+  }
+  return shuffle(out, rng);
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -163,19 +194,38 @@ export function setupGame(opts: SetupOptions): EngineGameState {
     id: p.id,
     name: p.name,
     score: STARTING_SCORE,
+    // From scratch: ONLY the empty 13-hex fountain board. No pre-placed
+    // tiles, no pre-attached expansions.
     spaces: fountainBoardSpaces(),
     placed: [],
     storage: Array.from(
       { length: JOKERS_AT_SETUP },
       () => ({ kind: 'joker' }) as StorageItem,
     ),
-    expansionStore: 0,
+    expansionStore: [],
     passed: false,
   }));
 
-  // Initial display: fill the top expansion of round-1 stack with 4 tiles.
+  // Shuffle the 36 garden expansions into 4 round stacks; remainder = supply.
+  const deck = buildExpansionDeck(rng);
+  const stackSize = STACK_SIZE_BY_PLAYERS[players.length];
+  const expansionStacks: DisplayExpansion[][] = [];
+  for (let r = 0; r < ROUNDS; r++) {
+    expansionStacks.push(deck.slice(r * stackSize, (r + 1) * stackSize));
+  }
+  const expansionSupply = TOTAL_EXPANSIONS - ROUNDS * stackSize;
+
+  // Initial display: the round-1 stack's top expansion enters the display
+  // face down, covered by exactly 4 random tiles (modelled as loose display
+  // tiles). When those tiles are drafted, the expansion is uncovered (flips
+  // face up, revealing pavilion + printed hexagon) and the next stack top
+  // comes out with 4 fresh tiles.
   const firstFill = bag.slice(bag.length - FOUNTAIN_REFILL_TILES);
   const remaining = bag.slice(0, bag.length - FOUNTAIN_REFILL_TILES);
+  const top = expansionStacks[0].shift();
+  const displayExpansions: DisplayExpansion[] = top
+    ? [{ ...top, faceUp: false }]
+    : [];
 
   return {
     roomId,
@@ -185,7 +235,9 @@ export function setupGame(opts: SetupOptions): EngineGameState {
     activePlayerIndex: opts.startingPlayerIndex ?? 0,
     firstPlayerIndex: opts.startingPlayerIndex ?? 0,
     displayTiles: firstFill,
-    displayExpansions: [],
+    displayExpansions,
+    expansionStacks,
+    expansionSupply,
     bag: remaining,
     firstPassTaken: false,
     winnerIds: [],
@@ -397,7 +449,8 @@ export function generateLegalMoves(
     const { tiles, expansions } = acquirableHexagons(state, select);
     if (tiles.length === 0 && expansions.length === 0) return;
     if (countTilesInStorage(p) + tiles.length > STORAGE_TILE_SPACES) return;
-    if (p.expansionStore + expansions.length > STORAGE_EXPANSION_SPACES) return;
+    if (p.expansionStore.length + expansions.length > STORAGE_EXPANSION_SPACES)
+      return;
     moves.push({ type: 'Acquire', playerId, select });
   };
   for (const pattern of PATTERNS) tryAcquire({ by: 'pattern', pattern });
@@ -417,10 +470,145 @@ export function generateLegalMoves(
     }
   }
 
+  // C) Place a held garden expansion (canonical footprint per attach anchor).
+  for (const held of p.expansionStore) {
+    const placements = expansionPlacements(p, held.spaces);
+    for (const cells of placements) {
+      if (held.faceDown || !held.hex) {
+        moves.push({ type: 'PlaceExpansion', playerId, expansionId: held.id, cells });
+        continue;
+      }
+      const payment = pickExpansionPayment(p, held.hex);
+      if (!payment) continue;
+      // pavilion at the first cell; printed hex at the first other cell whose
+      // garden adjacency is legal for the printed hexagon.
+      const featureAt = cells[0];
+      const printedAt = cells.find((c, i) => {
+        if (i === 0) return false;
+        const adj = neighbors(c)
+          .map((n) => placedAt(p, n))
+          .filter((x): x is PlacedHex => !!x);
+        if (adj.some((a) => sameHex(a.hex, held.hex!))) return false;
+        return (
+          adj.length === 0 ||
+          adj.some(
+            (a) =>
+              a.hex.pattern === held.hex!.pattern ||
+              a.hex.color === held.hex!.color,
+          )
+        );
+      });
+      if (!printedAt) continue;
+      moves.push({
+        type: 'PlaceExpansion',
+        playerId,
+        expansionId: held.id,
+        cells,
+        featureAt,
+        printedAt,
+        payment,
+      });
+    }
+  }
+
+  // C-alt) Buy a face-down supply expansion for 6 points.
+  if (state.expansionSupply > 0 && p.score >= SUPPLY_EXPANSION_COST) {
+    const placements = expansionPlacements(p, SUPPLY_EXPANSION_SPACES as 5 | 7);
+    if (placements.length > 0) {
+      moves.push({ type: 'BuyExpansion', playerId, cells: placements[0] });
+    }
+  }
+
   // D) Pass is always legal.
   moves.push({ type: 'Pass', playerId });
 
   return moves;
+}
+
+/**
+ * Candidate cell sets for attaching an expansion of `size` spaces: for each
+ * free hex bordering the garden, grow a connected blob of `size` new cells
+ * (BFS outward, avoiding existing spaces). Returns a handful of valid
+ * placements (capped) — the UI offers finer-grained control.
+ */
+function expansionPlacements(
+  p: PlayerEngineState,
+  size: number,
+): Axial[][] {
+  const existing = new Set(p.spaces.map((s) => axialKey(s.at)));
+  const anchors: Axial[] = [];
+  const seen = new Set<string>();
+  for (const s of p.spaces) {
+    for (const n of neighbors(s.at)) {
+      const k = axialKey(n);
+      if (existing.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      anchors.push(n);
+    }
+  }
+  const out: Axial[][] = [];
+  for (const anchor of anchors) {
+    // BFS blob of `size` cells starting at the anchor, never re-entering
+    // existing garden spaces.
+    const cells: Axial[] = [anchor];
+    const cellKeys = new Set<string>([axialKey(anchor)]);
+    const queue: Axial[] = [anchor];
+    while (cells.length < size && queue.length > 0) {
+      const cur = queue.shift()!;
+      for (const n of neighbors(cur)) {
+        if (cells.length >= size) break;
+        const k = axialKey(n);
+        if (existing.has(k) || cellKeys.has(k)) continue;
+        cellKeys.add(k);
+        cells.push(n);
+        queue.push(n);
+      }
+    }
+    if (cells.length === size) out.push(cells);
+    if (out.length >= 8) break; // cap for tractability
+  }
+  return out;
+}
+
+/** Canonical payment for an expansion's printed hexagon (jokers preferred). */
+export function pickExpansionPayment(
+  p: PlayerEngineState,
+  hex: Hexagon,
+): Payment[] | null {
+  const need = ADDITIONAL_TO_DISCARD[hex.pattern];
+  if (need === 0) return [];
+  const payment: Payment[] = [];
+  const jokers = countJokers(p);
+  for (let i = 0; i < Math.min(jokers, need); i++) payment.push({ kind: 'joker' });
+  let remaining = need - payment.length;
+  if (remaining === 0) return payment;
+  const pool = p.storage
+    .filter((s): s is Extract<StorageItem, { kind: 'tile' }> => s.kind === 'tile')
+    .map((s) => s.hex);
+  for (const mode of ['pattern', 'color'] as const) {
+    const chosen: Hexagon[] = [];
+    const usedKeys = new Set<string>([hexKey(hex)]);
+    const poolCopy = pool.slice();
+    for (let r = 0; r < remaining; r++) {
+      const i = poolCopy.findIndex((h) => {
+        if (usedKeys.has(hexKey(h))) return false;
+        return mode === 'pattern'
+          ? h.pattern === hex.pattern
+          : h.color === hex.color;
+      });
+      if (i === -1) break;
+      const picked = poolCopy.splice(i, 1)[0];
+      chosen.push(picked);
+      usedKeys.add(hexKey(picked));
+    }
+    if (chosen.length === remaining) {
+      return [
+        ...payment,
+        ...chosen.map((h) => ({ kind: 'tile' as const, hex: h })),
+      ];
+    }
+  }
+  return null;
 }
 
 function distinctStorageHexes(p: PlayerEngineState): Hexagon[] {
@@ -441,7 +629,7 @@ function distinctStorageHexes(p: PlayerEngineState): Hexagon[] {
  * prefer jokers first (they're wild), then real tiles that satisfy the
  * same-pattern/same-color + no-identical constraint. Returns null if impossible.
  */
-function pickCanonicalPayment(
+export function pickCanonicalPayment(
   p: PlayerEngineState,
   hex: Hexagon,
   need: number,
@@ -528,6 +716,10 @@ export function applyAction(
       return advanceTurn(applyAcquire(state, idx, action));
     case 'PlaceTile':
       return advanceTurn(applyPlace(state, idx, action));
+    case 'PlaceExpansion':
+      return advanceTurn(applyPlaceExpansion(state, idx, action));
+    case 'BuyExpansion':
+      return advanceTurn(applyBuyExpansion(state, idx, action));
     case 'Pass':
       return applyPass(state, idx, action); // pass handles its own turn flow
     default: {
@@ -552,7 +744,7 @@ function applyAcquire(
   if (countTilesInStorage(p) + tiles.length > STORAGE_TILE_SPACES) {
     throw new IllegalMoveError('acquire would exceed 12 tile storage spaces');
   }
-  if (p.expansionStore + expansions.length > STORAGE_EXPANSION_SPACES) {
+  if (p.expansionStore.length + expansions.length > STORAGE_EXPANSION_SPACES) {
     throw new IllegalMoveError(
       'acquire would exceed 2 expansion storage spaces',
     );
@@ -574,22 +766,274 @@ function applyAcquire(
 
   // Acquired expansions leave the display and go to expansion storage.
   const acquiredIds = new Set(expansions.map((e) => e.id));
-  np.expansionStore += expansions.length;
+  np.expansionStore.push(
+    ...expansions.map(
+      (e): HeldExpansion => ({
+        id: e.id,
+        spaces: e.spaces,
+        hex: e.hex,
+        faceDown: false,
+      }),
+    ),
+  );
   next.displayExpansions = next.displayExpansions.filter(
     (e) => !acquiredIds.has(e.id),
   );
 
-  // Display refill: if at least one loose tile was taken, draw 4 new tiles.
-  if (tiles.length > 0 && next.bag.length > 0) {
-    const rng = makeRng(next.rngState);
-    const drawn: Hexagon[] = [];
-    for (let i = 0; i < FOUNTAIN_REFILL_TILES && next.bag.length > 0; i++) {
-      drawn.push(next.bag.pop()!);
+  // Display refill: if at least one loose tile was taken, the covered stack-top
+  // expansion is uncovered (flips face up, revealing pavilion + hexagon), then
+  // the next expansion of the current round's stack comes out under 4 fresh
+  // tiles drawn from the bag.
+  if (tiles.length > 0) {
+    const covered = next.displayExpansions.find((e) => !e.faceUp);
+    if (covered) covered.faceUp = true;
+    const stack = next.expansionStacks[next.round - 1];
+    if (stack && stack.length > 0 && next.bag.length > 0) {
+      const top = stack.shift()!;
+      next.displayExpansions.push({ ...top, faceUp: false });
     }
-    next.displayTiles.push(...drawn);
-    next.rngState = rng.state();
+    if (next.bag.length > 0) {
+      const rng = makeRng(next.rngState);
+      const drawn: Hexagon[] = [];
+      for (let i = 0; i < FOUNTAIN_REFILL_TILES && next.bag.length > 0; i++) {
+        drawn.push(next.bag.pop()!);
+      }
+      next.displayTiles.push(...drawn);
+      next.rngState = rng.state();
+    }
   }
 
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Garden expansion placement (Action C) & supply purchase
+// ---------------------------------------------------------------------------
+
+const axEq = (a: Axial, b: Axial): boolean => a.q === b.q && a.r === b.r;
+
+/**
+ * Validate a set of new cells for attaching an expansion piece:
+ *  - exactly `size` cells, no duplicates
+ *  - none may overlap an existing garden space
+ *  - the cells must be connected among themselves
+ *  - at least one cell must be adjacent to an existing garden space
+ */
+export function validateExpansionCells(
+  p: PlayerEngineState,
+  cells: readonly Axial[],
+  size: number,
+): void {
+  if (cells.length !== size) {
+    throw new IllegalMoveError(`expansion needs exactly ${size} cells`);
+  }
+  const keys = new Set(cells.map(axialKey));
+  if (keys.size !== cells.length) {
+    throw new IllegalMoveError('expansion cells contain duplicates');
+  }
+  const existing = new Set(p.spaces.map((s) => axialKey(s.at)));
+  for (const c of cells) {
+    if (existing.has(axialKey(c))) {
+      throw new IllegalMoveError('expansion overlaps the existing garden');
+    }
+  }
+  // connectivity (flood fill over the cell set)
+  const visited = new Set<string>([axialKey(cells[0])]);
+  const stack: Axial[] = [cells[0]];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const n of neighbors(cur)) {
+      const k = axialKey(n);
+      if (keys.has(k) && !visited.has(k)) {
+        visited.add(k);
+        stack.push(n);
+      }
+    }
+  }
+  if (visited.size !== cells.length) {
+    throw new IllegalMoveError('expansion cells must be connected');
+  }
+  // adjacency to the existing garden
+  const touches = cells.some((c) =>
+    neighbors(c).some((n) => existing.has(axialKey(n))),
+  );
+  if (!touches) {
+    throw new IllegalMoveError('expansion must attach adjacent to the garden');
+  }
+}
+
+/**
+ * Validate payment for placing a face-up expansion: the printed hexagon
+ * counts toward its own cost (so `payment` = cost - 1 items), payment items
+ * must come from storage and form a legal set with the printed hex (jokers
+ * wild). Unlike PlaceTile, the printed hex is NOT consumed from storage.
+ */
+export function validateExpansionPayment(
+  p: PlayerEngineState,
+  hex: Hexagon,
+  payment: readonly Payment[],
+): void {
+  const needed = ADDITIONAL_TO_DISCARD[hex.pattern];
+  if (payment.length !== needed) {
+    throw new IllegalMoveError(
+      `placing expansion with ${hexKey(hex)} needs exactly ${needed} payment item(s), got ${payment.length}`,
+    );
+  }
+  const avail = p.storage.map((s) => clone(s));
+  for (const pay of payment) {
+    const i = avail.findIndex((s) =>
+      pay.kind === 'joker'
+        ? s.kind === 'joker'
+        : s.kind === 'tile' && sameHex(s.hex, pay.hex),
+    );
+    if (i === -1) {
+      throw new IllegalMoveError(
+        `storage missing ${pay.kind === 'joker' ? 'joker' : hexKey(pay.hex)}`,
+      );
+    }
+    avail.splice(i, 1);
+  }
+  const realHexes: Hexagon[] = [
+    hex,
+    ...payment
+      .filter((x): x is Extract<Payment, { kind: 'tile' }> => x.kind === 'tile')
+      .map((x) => x.hex),
+  ];
+  const keys = realHexes.map(hexKey);
+  if (new Set(keys).size !== keys.length) {
+    throw new IllegalMoveError('payment contains two identical hexagons');
+  }
+  if (realHexes.length >= 2) {
+    const allSamePattern = realHexes.every(
+      (h) => h.pattern === realHexes[0].pattern,
+    );
+    const allSameColor = realHexes.every((h) => h.color === realHexes[0].color);
+    if (!allSamePattern && !allSameColor) {
+      throw new IllegalMoveError(
+        'payment hexagons must be all-same-pattern or all-same-color',
+      );
+    }
+  }
+}
+
+function applyPlaceExpansion(
+  state: EngineGameState,
+  idx: number,
+  action: PlaceExpansionAction,
+): EngineGameState {
+  const p = state.players[idx];
+  const held = p.expansionStore.find((e) => e.id === action.expansionId);
+  if (!held) {
+    throw new IllegalMoveError('expansion not in storage');
+  }
+  validateExpansionCells(p, action.cells, held.spaces);
+
+  let featureAt: Axial | undefined;
+  let printedAt: Axial | undefined;
+  if (!held.faceDown && held.hex) {
+    featureAt = action.featureAt;
+    printedAt = action.printedAt;
+    if (!featureAt || !printedAt) {
+      throw new IllegalMoveError(
+        'face-up expansion requires featureAt (pavilion) and printedAt (hexagon) cells',
+      );
+    }
+    if (
+      !action.cells.some((c) => axEq(c, featureAt!)) ||
+      !action.cells.some((c) => axEq(c, printedAt!)) ||
+      axEq(featureAt, printedAt)
+    ) {
+      throw new IllegalMoveError(
+        'featureAt/printedAt must be distinct cells of the expansion',
+      );
+    }
+    validateExpansionPayment(p, held.hex, action.payment ?? []);
+
+    // The printed hexagon must obey tile adjacency vs the garden once the new
+    // spaces exist. Check against existing placed tiles (new cells are empty).
+    const adj = neighbors(printedAt)
+      .map((n) => placedAt(p, n))
+      .filter((x): x is PlacedHex => !!x);
+    if (adj.some((a) => sameHex(a.hex, held.hex!))) {
+      throw new IllegalMoveError(
+        'printed hexagon would be adjacent to an identical hexagon',
+      );
+    }
+    if (
+      adj.length > 0 &&
+      !adj.some(
+        (a) => a.hex.pattern === held.hex!.pattern || a.hex.color === held.hex!.color,
+      )
+    ) {
+      throw new IllegalMoveError(
+        'printed hexagon must share pattern or color with an adjacent hexagon',
+      );
+    }
+  }
+
+  const next = clone(state);
+  const np = next.players[idx];
+
+  // Pay (face-up only).
+  if (!held.faceDown && held.hex) {
+    for (const pay of action.payment ?? []) {
+      const i = np.storage.findIndex((s) =>
+        pay.kind === 'joker'
+          ? s.kind === 'joker'
+          : s.kind === 'tile' && sameHex(s.hex, pay.hex),
+      );
+      np.storage.splice(i, 1);
+    }
+  }
+
+  // Attach the new spaces (feature cell marked) and the printed hexagon.
+  for (const c of action.cells) {
+    const isFeature = featureAt ? axEq(c, featureAt) : false;
+    np.spaces.push(isFeature ? { at: c, feature: 'pavilion' } : { at: c });
+  }
+  if (printedAt && held.hex) {
+    np.placed.push({ at: printedAt, hex: held.hex });
+  }
+
+  // Remove from expansion storage.
+  np.expansionStore = np.expansionStore.filter((e) => e.id !== held.id);
+
+  // The new printed hexagon may complete a feature surround.
+  const surrounded = newlySurroundedFeatures(
+    { ...p, spaces: np.spaces },
+    np.placed,
+  );
+  for (const f of surrounded) {
+    const award = FEATURE_JOKERS[f] ?? 0;
+    const free = STORAGE_TILE_SPACES - np.storage.length;
+    const give = Math.max(0, Math.min(award, free));
+    for (let i = 0; i < give; i++) np.storage.push({ kind: 'joker' });
+  }
+
+  return next;
+}
+
+function applyBuyExpansion(
+  state: EngineGameState,
+  idx: number,
+  action: BuyExpansionAction,
+): EngineGameState {
+  const p = state.players[idx];
+  if (state.expansionSupply <= 0) {
+    throw new IllegalMoveError('no expansions left in the supply');
+  }
+  if (p.score < SUPPLY_EXPANSION_COST) {
+    throw new IllegalMoveError(
+      `buying a supply expansion costs ${SUPPLY_EXPANSION_COST} points`,
+    );
+  }
+  validateExpansionCells(p, action.cells, SUPPLY_EXPANSION_SPACES);
+
+  const next = clone(state);
+  const np = next.players[idx];
+  np.score -= SUPPLY_EXPANSION_COST;
+  next.expansionSupply -= 1;
+  for (const c of action.cells) np.spaces.push({ at: c });
   return next;
 }
 
@@ -762,7 +1206,13 @@ export function advanceRound(state: EngineGameState): EngineGameState {
   next.activePlayerIndex = next.firstPlayerIndex;
   for (const p of next.players) p.passed = false;
 
-  // Refill display top expansion with 4 tiles for the new round.
+  // New round: the next round's stack top comes out face down, covered by
+  // 4 fresh tiles drawn from the bag.
+  const stack = next.expansionStacks[next.round - 1];
+  if (stack && stack.length > 0) {
+    const top = stack.shift()!;
+    next.displayExpansions.push({ ...top, faceUp: false });
+  }
   const rng = makeRng(next.rngState);
   const drawn: Hexagon[] = [];
   for (let i = 0; i < FOUNTAIN_REFILL_TILES && next.bag.length > 0; i++) {

@@ -41,6 +41,24 @@ export interface PlacedTile {
   readonly at: Coord;
 }
 
+/** A garden-expansion (flower bed) held in a player's storage. */
+export interface HeldBed {
+  readonly id: string;
+  readonly spaces: 5 | 7;
+  /** True for blank pieces bought face-down from the supply. */
+  readonly faceDown: boolean;
+  /** Printed hexagon (face-up pieces only). */
+  readonly printedTile?: Tile;
+}
+
+/** A hex space of a player's garden (grows as flower beds attach). */
+export interface PlotSpace {
+  readonly at: Coord;
+  /** Feature ornament id (themed: birdbath/gardenGnome/pottingTable/gazebo). */
+  readonly feature?: string;
+  readonly piece: string;
+}
+
 /** Per-player view state. */
 export interface PlayerState {
   readonly id: string;
@@ -53,6 +71,10 @@ export interface PlayerState {
   readonly board: PlacedTile[];
   /** Discard / penalty area (compost). */
   readonly floor: Tile[];
+  /** The garden's hex spaces (fountain board + attached flower beds). */
+  readonly spaces: PlotSpace[];
+  /** Flower beds held in expansion storage (max 2). */
+  readonly beds: HeldBed[];
 }
 
 /** Phases as the board cares about them. */
@@ -69,6 +91,15 @@ export interface Factory {
   readonly tiles: Tile[];
 }
 
+/** A flower-bed expansion visible in the central display. */
+export interface DisplayBed {
+  readonly id: string;
+  readonly spaces: 5 | 7;
+  /** Face up = revealed (gazebo + 1 printed tile), draftable. */
+  readonly faceUp: boolean;
+  readonly printedTile?: Tile;
+}
+
 /** The board's full view state. */
 export interface GameState {
   readonly roomId: string;
@@ -78,6 +109,10 @@ export interface GameState {
   readonly activePlayerIndex: number | null;
   readonly factories: Factory[];
   readonly center: Tile[];
+  /** Flower-bed expansions in the central display. */
+  readonly displayBeds: DisplayBed[];
+  /** Face-down supply beds purchasable for 6 points. */
+  readonly supplyCount: number;
   readonly bagCount: number;
   readonly winnerId: string | null;
 }
@@ -99,6 +134,8 @@ export interface PlaceTileAction {
   readonly playerId: string;
   readonly tileId: string;
   readonly at: Coord;
+  /** Storage tile ids discarded as payment (jokers use `joker:` ids). */
+  readonly payment?: string[];
 }
 
 export interface DiscardToFloorAction {
@@ -112,9 +149,40 @@ export interface EndTurnAction {
   readonly playerId: string;
 }
 
+/** Acquire a face-up flower bed from the display into expansion storage. */
+export interface AcquireBedAction {
+  readonly type: 'AcquireBed';
+  readonly playerId: string;
+  readonly bedId: string;
+  /** Tile id of the bed's printed hexagon (drives the engine Acquire select). */
+  readonly printedTileId: string;
+}
+
+/** Place a held flower bed into the garden at the given cells. */
+export interface PlaceBedAction {
+  readonly type: 'PlaceBed';
+  readonly playerId: string;
+  readonly bedId: string;
+  readonly cells: Coord[];
+  readonly featureAt?: Coord;
+  readonly printedAt?: Coord;
+  /** Storage tile ids discarded as payment (jokers use `joker:` ids). */
+  readonly payment?: string[];
+}
+
+/** Buy a face-down supply bed (7 blank spaces) for 6 points. */
+export interface BuyBedAction {
+  readonly type: 'BuyBed';
+  readonly playerId: string;
+  readonly cells: Coord[];
+}
+
 /** Discriminated union of board-level intents (the board's onAction shape). */
 export type Action =
   | DraftTilesAction
   | PlaceTileAction
+  | AcquireBedAction
+  | PlaceBedAction
+  | BuyBedAction
   | DiscardToFloorAction
   | EndTurnAction;

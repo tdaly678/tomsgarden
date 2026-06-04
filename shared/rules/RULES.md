@@ -26,12 +26,21 @@ confirmed from the rulebook text are flagged **[UNCONFIRMED]** here and in `rule
   - pattern4 (flower) = **4**
   - pattern5 = **5**
   - pattern6 = **6**
-- **36 garden expansions** (small hex pieces, each showing one hexagon + a pavilion in the center when flipped up). Each provides **5 or 7** extra tile spaces when placed.
+- **36 garden expansions** (confirmed count, setup step 5). Double-sided hex pieces: face DOWN = blank spaces; face UP = a **pavilion** in the center + **one** printed hexagon. Each provides **5 or 7** extra tile spaces when placed (confirmed, Action C). **[UNCONFIRMED]**: the 5-space vs 7-space split among the 36, and the distribution of any extra printed features (statues/benches) across them — verify from component photos. Face-down supply expansions are explicitly **7-space**.
 - **Jokers** (wild/grey): each player starts with **3**. Supply is effectively unlimited.
 - Per player: 1 garden board, 1 storage, 1 **fountain board** (the large 13-hex central piece), 1 scoring marker.
 - Shared: scoring board, **rotary wheel** (2 sides for variability), evaluation marker, first-player marker, tower, point tokens.
 
 ## Setup
+
+### Starting state — players start FROM SCRATCH (confirmed, rulebook p.2)
+
+Each player begins with:
+- **1 fountain board** — the ONLY garden piece at game start, placed in the middle of their (otherwise empty) garden. It has **13 hexagon tile spaces** and a printed **fountain** feature. **[UNCONFIRMED detail]**: the exact arrangement of the 13 hexes around the fountain art, and whether any other feature is printed on it, must be taken from board photos.
+- **3 jokers** in storage. Nothing else: **0 tiles**, **0 expansions**, **no other garden pieces**.
+- Scoring marker on space **15** of the scoring track (so the 6-point face-down-expansion buy is affordable early).
+
+The garden then **grows during play** by attaching garden expansions (5- or 7-space pieces) around the fountain board — drafted from the display, or bought face-down from the supply for 6 points. The implemented game must NOT pre-place expansions or tiles.
 
 1. Each player takes a garden board, a storage, a fountain board (placed in the middle of their garden), and **3 jokers** on empty storage spaces.
 2. Place the scoring board with rotary wheel set to its starting quadrant. Evaluation marker at top of evaluation track.
@@ -89,7 +98,8 @@ Additional-hexagons-to-discard by pattern: tree=0, bird=1, butterfly=2, flower=3
 You may **never** make two identical hexagons (same pattern AND color) adjacent.
 
 **Surrounding a feature.** If placing fully surrounds a **fountain, statue, bench, or pavilion**, immediately gain jokers from the supply (per the surrounded element) into storage; excess jokers are lost.
-- **[UNCONFIRMED]** exact jokers per feature (rulebook shows on board art, not in text). Placeholders in `rules.json`: fountain 3, statue 2, bench 1, pavilion 1 — verify against the player board.
+- **Pavilion = 3 jokers** (best confirmation available: The Tabletop Crier review — "Pavilions were the best at three joker tokens").
+- **[UNCONFIRMED]** fountain/statue/bench exact joker counts (printed on the bottom-left of the player board, not in rulebook text). Current `rules.json` values: fountain 1, statue 2, bench 2 — best-guess given pavilion is the maximum (3); verify against player-board art.
 
 ### C) Place a garden expansion
 Either:
@@ -111,7 +121,9 @@ Starting with the first player, each player scores:
 
 The scoring track is continuous; use point tokens to track totals.
 
-- **[UNCONFIRMED]** The exact 3 categories each of the 4 wheel quadrants points to is encoded in the physical wheel art (two wheel sides). `rules.json` lists a reasonable balanced assignment for the standard side; verify against the wheel. Points naturally scale up rounds 1→4.
+- **Confirmed wheel structure** (Zatu Games): each pattern and each color is scored **exactly once per game** — the 4 quadrants × 3 categories cover all 12 categories (6 patterns + 6 colors) with no repeats — and the available points **increase progressively from round 1 to round 4** (low-value patterns early, high-value late).
+- Partial datum (BGG thread 3130788): on that poster's wheel side, round 1 scored the dark-green and blue **colors**.
+- **[UNCONFIRMED]** The exact 3-category-per-quadrant assignment is wheel art only. `rules.json` lists an assignment that satisfies all confirmed constraints; verify against wheel photos before competitive balancing.
 
 ## Phase 3 — Prepare the Next Round
 

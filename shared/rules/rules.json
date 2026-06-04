@@ -39,17 +39,61 @@
     }
   },
 
+  "startingSetup": {
+    "_notes": "CONFIRMED from official EN rulebook p.2 'Game Setup'. Each player starts from scratch: an EMPTY garden except for the single fountain board placed in its middle.",
+    "perPlayer": {
+      "gardenBoard": 1,
+      "storageBoard": 1,
+      "fountainBoard": 1,
+      "jokersInStorage": 3,
+      "tilesInStorage": 0,
+      "expansionsInStorage": 0,
+      "tilesInGarden": 0,
+      "expansionsAttachedToGarden": 0,
+      "startingScore": 15,
+      "_scoreNote": "CONFIRMED: scoring marker starts on the 15th space of the scoring track (rulebook setup step 3). Players begin with 15 points so they can afford the 6-point face-down expansion purchase early."
+    },
+    "fountainBoardGeometry": {
+      "hexSpaces": 13,
+      "shape": "roughly circular hex cluster around a central fountain feature",
+      "featuresPrinted": ["fountain (center)"],
+      "_unconfirmed": "13 hex spaces is confirmed by multiple sources (Zatu Games how-to-play: 'fountain boards are larger than the garden expansions, 13 hexagons instead of 7'). The exact arrangement of the 13 hexes around the fountain art and whether additional features (e.g. a bench/statue) are printed on it must be verified from board photos. The fountain itself sits in/at the center and is a surroundable feature.",
+      "suggestedAxialLayout": "_unconfirmed: a 13-space layout consistent with photos is a hex ring structure: central fountain occupying the middle with 13 tile spaces arranged around/beside it. Engine may use any 13-space connected hex layout with the fountain feature adjacent to several of them; flag for art verification."
+    },
+    "sharedSetup": {
+      "bagTiles": 108,
+      "wheelStartPosition": "first quadrant (dents aligned to the two markers at top)",
+      "evaluationMarker": "top of evaluation track",
+      "firstPlayer": "youngest player, marker placed in display area",
+      "roundStackTopFilledWith": 4
+    }
+  },
+
   "gardenExpansions": {
     "total": 36,
-    "_notes": "Garden expansions are small hex tiles bearing a single hexagon (pattern+color) on one of their spaces, plus a pavilion in the center once flipped face up. They are drafted like tiles and can also be placed in the garden to add space.",
+    "_notes": "CONFIRMED count (rulebook setup step 5: 'Shuffle the 36 garden expansions'). Garden expansions are double-sided hex pieces. Face DOWN (back): blank spaces only. Face UP (front, revealed when emptied of tiles in the display): shows a pavilion in the center and ONE printed hexagon (pattern+color) on one of its spaces. They are drafted like tiles (storage limit 2) and placed into the garden to add space.",
     "spacesProvidedWhenPlaced": [5, 7],
-    "_spacesNote": "Each garden expansion provides 5 or 7 additional tile spaces depending on the piece. A face-down expansion bought from supply provides 7 free spaces.",
+    "_spacesNote": "CONFIRMED (rulebook Action C): 'Garden expansions provide 5 or 7 additional spaces for tiles.' A face-down expansion bought from the supply for 6 points provides 7 FREE spaces (no printed hexagon, no pavilion visible).",
+    "countBySize": {
+      "fiveSpace": null,
+      "sevenSpace": null,
+      "_unconfirmed": "The split of the 36 expansions between 5-space and 7-space pieces is not stated in the rulebook text and could not be confirmed from secondary sources. Verify by counting from component photos/BGG files. Engine note: face-down supply purchases are explicitly 7-space, so at least a substantial share are 7-space."
+    },
+    "faceUpFeatures": {
+      "pavilionCenter": true,
+      "printedHexagons": 1,
+      "otherFeatures": "_unconfirmed: some expansions show additional features (statues, benches) in photos; exact distribution of statue/bench/fountain features across the 36 expansions is not documented in the rulebook text and must be taken from component scans."
+    },
+    "geometry": {
+      "_unconfirmed": "Exact hex outlines of the 5-space and 7-space pieces are art-defined. A 7-space piece consistent with photos is a centered hex 'flower' (1 center + 6 ring) with the pavilion occupying the center position graphic; a 5-space piece is an irregular pentomino-like hex cluster. Verify before finalizing client geometry.",
+      "placement": "Attach on a free expansion area around the fountain board, any orientation, following the same adjacency rules as tiles (rulebook Action C, CONFIRMED)."
+    },
     "stackSizePerRoundByPlayerCount": {
       "2": 5,
       "3": 7,
       "4": 8
     },
-    "_stackNote": "Shuffle all 36 expansions and build 4 face-down round stacks of this size. Remaining expansions form the supply with the shield/cost token on top."
+    "_stackNote": "CONFIRMED (rulebook setup step 5). Shuffle all 36 expansions and build 4 face-down round stacks of this size. Remaining expansions form the supply with the shield/cost (-6) token on top. Supply size = 36 - 4*stackSize: 16 (2p), 8 (3p), 4 (4p)."
   },
 
   "placementCosts": {
@@ -83,7 +127,7 @@
     "fountainBoard": {
       "hexCount": 13,
       "placedAt": "center of player's garden at setup",
-      "_notes": "The fountain board is the larger central piece (13 hexagons). Garden expansions attach around it to extend the garden."
+      "_notes": "CONFIRMED: the fountain board is the ONLY garden piece a player starts with (rulebook setup step 1). It has 13 hexagon tile spaces (Zatu: '13 hexagons instead of 7') and a fountain feature. The garden is otherwise EMPTY at game start. See startingSetup section."
     },
     "_layoutNotes": "The garden grows organically: players attach garden-expansion pieces (5 or 7 hex each) around the central fountain board. Tiles are placed onto hex spaces of the fountain board and expansions. Adjacency is hex-based (up to 6 neighbors per hex).",
     "placementRules": {
@@ -96,11 +140,12 @@
 
   "features": {
     "_notes": "Garden features are decorative elements on the boards. Fully surrounding a feature (all its adjacent hex spaces occupied) immediately awards jokers from the supply, placed into storage; excess jokers (no storage space) are lost.",
+    "_jokerSourceNote": "Rulebook text only says 'you receive jokers from the supply according to the surrounded element'; the exact numbers are printed on the bottom-left of the player board (Zatu Games how-to-play: 'the player immediately receives as many jokers as depicted on the bottom left side of the player board'). The Tabletop Crier review states pavilions award the MOST at 3 jokers ('Pavilions were the best at three joker tokens'), inverting the earlier placeholder ordering. Fountain is the rarest (1 per player, printed on start board) so it logically awards fewest; pavilions appear on every flipped expansion but require surrounding 6 spaces of a 7-space piece.",
     "types": [
-      { "id": "fountain", "jokersAwardedWhenSurrounded": 3, "_unconfirmed": "Exact joker count per feature type is shown on the player board art, not transcribed numerically in the rulebook text. Verify against board: rulebook states 'receive jokers according to the surrounded element.' Reasonable balanced values flagged here." },
-      { "id": "statue", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "See fountain note. Placeholder value, verify against player-board art." },
-      { "id": "bench", "jokersAwardedWhenSurrounded": 1, "_unconfirmed": "See fountain note. Placeholder value, verify against player-board art." },
-      { "id": "pavilion", "jokersAwardedWhenSurrounded": 1, "scoresEndOfRound": 1, "_unconfirmed": "Joker award on surround is a placeholder; verify against art. The +1 point per visible pavilion at round scoring IS confirmed by rulebook." }
+      { "id": "fountain", "jokersAwardedWhenSurrounded": 1, "_unconfirmed": "Verify against player-board art. Only confirmed datum: pavilion = 3 (max). Fountain/statue/bench exact values unverified; 1/2/2-style guesses pending photo confirmation." },
+      { "id": "statue", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "Verify against player-board art (see _jokerSourceNote)." },
+      { "id": "bench", "jokersAwardedWhenSurrounded": 2, "_unconfirmed": "Verify against player-board art (see _jokerSourceNote)." },
+      { "id": "pavilion", "jokersAwardedWhenSurrounded": 3, "scoresEndOfRound": 1, "_sourceConfirmedPartial": "3 jokers for surrounding a pavilion is reported by The Tabletop Crier review ('Pavilions were the best at three joker tokens'). The +1 point per visible pavilion at round scoring is CONFIRMED by the rulebook." }
     ]
   },
 
@@ -121,7 +166,9 @@
       "quadrantsPerWheel": 4,
       "categoriesIndicatedPerQuadrant": 3,
       "wheelSides": 2,
-      "_unconfirmed": "The precise mapping of which 3 patterns/colors each of the 4 quadrants points to is encoded in the physical wheel art and not listed as a numeric table in the rulebook text. Below is a balanced reasonable assignment for the standard (front) wheel side; VERIFY against the physical wheel before final balancing.",
+      "eachCategoryScoredExactlyOncePerGame": true,
+      "_constraintConfirmed": "CONFIRMED (Zatu Games how-to-play): 'each pattern and colour are scored only once per game' and 'the points that could be gained increase progressively from round one to four.' Therefore the 4 quadrants x 3 categories = exactly the 12 categories (6 patterns + 6 colors), each appearing once, with expected value rising round to round (low-value patterns early, high-value patterns late).",
+      "_unconfirmed": "The precise 3-category-per-quadrant assignment is encoded in the physical wheel art and not listed in any rulebook text or located written source. Partial datum (BGG thread 3130788): on the side used by that poster, ROUND 1 scores dark green and blue tiles (two colors), implying a colors-heavy round 1. The assignment below honors all confirmed constraints (each category once; values ramp up; round 1 = pattern1 + 2 colors per the BGG hint pattern) but the specific color/pattern slots must be VERIFIED against wheel photos before competitive balancing.",
       "standardSideQuadrants": [
         { "round": 1, "categories": ["pattern1", "color1", "color2"], "_unconfirmed": true },
         { "round": 2, "categories": ["pattern2", "pattern3", "color3"], "_unconfirmed": true },

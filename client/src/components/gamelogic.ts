@@ -89,6 +89,103 @@ export function legalTargets(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Payment helpers (client-side mirror of the engine's payment rules)
+// ---------------------------------------------------------------------------
+
+/** Key for the "no two identical hexagons" rule. Jokers get unique keys. */
+function setKey(t: Tile): string {
+  return t.wildcard ? `joker:${t.id}` : `${t.color}/${patternOf(t)}`;
+}
+
+/**
+ * Is `selection` (other storage tiles, NOT the anchor) a valid payment for an
+ * anchor hexagon of `anchorColor`/`anchorPattern`, given the engine set rule:
+ * real tiles + anchor must be all-same-pattern (different colors) OR
+ * all-same-color (different patterns); no two identical; jokers wild.
+ * Does NOT check count — see `isPaymentComplete`.
+ */
+export function isValidPaymentSet(
+  anchor: Tile,
+  selection: Tile[],
+): boolean {
+  const anchorPat = patternOf(anchor);
+  const real = selection.filter((t) => !t.wildcard);
+  const keys = [
+    `${anchor.color}/${anchorPat}`,
+    ...real.map((t) => setKey(t)),
+  ];
+  if (new Set(keys).size !== keys.length) return false;
+  if (real.length === 0) return true;
+  const allSamePattern = real.every((t) => patternOf(t) === anchorPat);
+  const allSameColor = real.every((t) => t.color === anchor.color);
+  return allSamePattern || allSameColor;
+}
+
+/** Full client-side validity: set rule AND exact required count. */
+export function isValidPayment(
+  anchor: Tile,
+  selection: Tile[],
+  needed: number,
+): boolean {
+  return selection.length === needed && isValidPaymentSet(anchor, selection);
+}
+
+/**
+ * Suggest a valid payment of `needed` items from `pool` (storage tiles,
+ * excluding the anchor copy itself when placing a tile). Mirrors the engine's
+ * canonical pickers: jokers first, then same-pattern, then same-color tiles.
+ * Returns null when unaffordable.
+ */
+export function suggestPayment(
+  anchor: Tile,
+  pool: Tile[],
+  needed: number,
+): Tile[] | null {
+  if (needed === 0) return [];
+  const jokers = pool.filter((t) => t.wildcard);
+  const chosen: Tile[] = jokers.slice(0, needed);
+  let remaining = needed - chosen.length;
+  if (remaining === 0) return chosen;
+  const real = pool.filter((t) => !t.wildcard);
+  const anchorPat = patternOf(anchor);
+  for (const mode of ['pattern', 'color'] as const) {
+    const used = new Set<string>([`${anchor.color}/${anchorPat}`]);
+    const picked: Tile[] = [];
+    for (const t of real) {
+      if (picked.length >= remaining) break;
+      const k = setKey(t);
+      if (used.has(k)) continue;
+      const match =
+        mode === 'pattern'
+          ? patternOf(t) === anchorPat
+          : t.color === anchor.color;
+      if (!match) continue;
+      used.add(k);
+      picked.push(t);
+    }
+    if (picked.length === remaining) return [...chosen, ...picked];
+  }
+  return null;
+}
+
+/**
+ * Can the player afford to PLACE `tile` (the placed copy is consumed and
+ * counts toward its own cost)? Pool = hand minus one copy of the tile itself.
+ */
+export function canAffordTile(tile: Tile, hand: Tile[]): boolean {
+  const pool = hand.filter((t) => t.id !== tile.id);
+  return suggestPayment(tile, pool, placementCost(tile) - 1) !== null;
+}
+
+/**
+ * Can the player afford to place a face-up bed whose printed tile is
+ * `printed`? The printed hex is NOT in storage; payment = cost-1 from hand.
+ */
+export function canAffordBed(printed: Tile, hand: Tile[]): boolean {
+  return suggestPayment(printed, hand, placementCost(printed) - 1) !== null;
+}
+
 /**
  * For a factory/center, group tiles by color (acquire takes ALL of one color,
  * skipping identical-hexagon duplicates).

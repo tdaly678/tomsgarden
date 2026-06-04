@@ -551,6 +551,128 @@
   }
 }
 
+/* ---------- flower-bed display & shelf ---------- */
+.tg-bed-display {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--tg-panel);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--tg-radius);
+}
+.tg-bed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tg-panel-2);
+  color: var(--tg-ink);
+  border: 1px solid var(--tg-border);
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+.tg-bed-chip:hover:not(:disabled) {
+  border-color: var(--tg-legal);
+}
+.tg-bed-chip.is-selected,
+.tg-btn.is-selected {
+  border: 1px solid var(--tg-accent);
+  box-shadow: 0 0 8px var(--tg-accent);
+}
+.tg-bed-chip.is-unaffordable {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+}
+.tg-bedshelf {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--tg-border);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+.tg-btn.is-ghost {
+  background: transparent;
+  color: var(--tg-ink);
+  border: 1px solid var(--tg-border);
+}
+.tg-btn.is-ghost:hover {
+  border-color: var(--tg-ink-dim);
+}
+
+/* ---------- payment picker ---------- */
+.tg-payment {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tg-overlay-scrim, rgba(18, 17, 16, 0.55));
+  z-index: var(--tg-z-modal, 1000);
+  animation: tg-fade-in var(--tg-dur-base, 220ms) ease;
+}
+.tg-payment-card {
+  background: var(--tg-bg-2);
+  color: var(--tg-ink);
+  border: 1px solid var(--tg-accent);
+  border-radius: var(--tg-radius-lg, 14px);
+  box-shadow: var(--tg-shadow-lg, 0 8px 22px rgba(0, 0, 0, 0.4));
+  padding: 18px 20px;
+  min-width: 300px;
+  max-width: 460px;
+  font-family: system-ui, sans-serif;
+  animation: tg-card-rise var(--tg-dur-slow, 360ms) var(--tg-ease-emphasized, ease) both;
+}
+.tg-payment-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.tg-payment-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tg-accent);
+}
+.tg-payment-sub {
+  font-size: 0.8rem;
+  color: var(--tg-ink-dim);
+  line-height: 1.4;
+}
+.tg-payment-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--tg-border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.tg-payment-item {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 3px;
+  cursor: pointer;
+  line-height: 0;
+}
+.tg-payment-item:hover {
+  border-color: var(--tg-legal);
+}
+.tg-payment-item.is-selected {
+  border-color: var(--tg-accent);
+  background: rgba(232, 181, 61, 0.12);
+}
+.tg-payment-item.is-ineligible {
+  opacity: 0.35;
+}
+.tg-payment-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ---------- live scoreboard: popups, pulses, overlays ---------- */
 .tg-score-popup {
   position: absolute;

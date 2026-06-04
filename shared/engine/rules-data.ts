@@ -54,7 +54,7 @@ export const STORAGE_TILE_SPACES = rules.storage.tileSpaces;
 export const STORAGE_EXPANSION_SPACES = rules.storage.gardenExpansionSpaces;
 export const JOKERS_AT_SETUP = rules.tileSet.jokers.perPlayerAtSetup;
 export const ROUNDS = rules.rounds.count;
-export const STARTING_SCORE = 15;
+export const STARTING_SCORE = rules.startingSetup.perPlayer.startingScore;
 export const PAVILION_BONUS_PER_ROUND =
   rules.roundScoring.pavilionBonusPerRound;
 export const FIRST_PASS_PENALTY =
@@ -63,7 +63,18 @@ export const FINAL_MIN_GROUP_SIZE =
   rules.finalScoring.groupScoring.minGroupSize;
 export const COMPLETE_SET_BONUS =
   rules.finalScoring.completeSetBonus.groupOfSixDifferent;
-export const FOUNTAIN_REFILL_TILES = 4;
+export const FOUNTAIN_REFILL_TILES =
+  rules.startingSetup.sharedSetup.roundStackTopFilledWith;
+export const TOTAL_EXPANSIONS = rules.gardenExpansions.total;
+/** Expansions per round stack by player count (2/3/4). */
+export const STACK_SIZE_BY_PLAYERS: Record<number, number> = {
+  2: rules.gardenExpansions.stackSizePerRoundByPlayerCount['2'],
+  3: rules.gardenExpansions.stackSizePerRoundByPlayerCount['3'],
+  4: rules.gardenExpansions.stackSizePerRoundByPlayerCount['4'],
+};
+export const SUPPLY_EXPANSION_COST = rules.buyExpansionFromSupply.costPoints;
+export const SUPPLY_EXPANSION_SPACES =
+  rules.buyExpansionFromSupply.providesSpaces;
 
 /** Jokers awarded when a feature is fully surrounded. */
 export const FEATURE_JOKERS: Record<FeatureType, number> = (() => {

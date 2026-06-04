@@ -644,7 +644,7 @@ export default class TomsgardenServer implements Party.Server {
       spaces: [],
       placed: [],
       storage: [],
-      expansionStore: 0,
+      expansionStore: [],
       passed: false,
     }));
     return {
@@ -656,6 +656,8 @@ export default class TomsgardenServer implements Party.Server {
       firstPlayerIndex: 0,
       displayTiles: [],
       displayExpansions: [],
+      expansionStacks: [[], [], [], []],
+      expansionSupply: 0,
       bag: [],
       firstPassTaken: false,
       winnerIds: [],

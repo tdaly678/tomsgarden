@@ -4,7 +4,7 @@
  * shown read-only/compact.
  */
 import type React from 'react';
-import type { Coord, PlayerState, Tile as TileT } from './boardModel';
+import type { Coord, HeldBed, PlayerState, Tile as TileT } from './boardModel';
 import { GardenPlot } from './GardenPlot';
 import { Shed } from './Shed';
 import { Tile } from './Tile';
@@ -20,11 +20,20 @@ interface PlayerPanelProps {
   /** This panel belongs to the local/controlling player. */
   isLocal: boolean;
   pendingTile?: TileT | null;
+  /** Hand tile ids the player can't currently afford to place (dimmed). */
+  unaffordableIds?: Set<string>;
   legalKeys?: Set<string>;
   invalidKey?: string | null;
   onSelectTile?: (tile: TileT) => void;
   onPlace?: (at: Coord) => void;
   onDiscard?: (tile: TileT) => void;
+  /** Held flower-bed selection / placement (local player only). */
+  pendingBedId?: string | null;
+  /** Held bed ids whose printed-tile cost can't currently be paid. */
+  unaffordableBedIds?: Set<string>;
+  bedCandidates?: Coord[][];
+  onSelectBed?: (bed: HeldBed) => void;
+  onPlaceBed?: (cells: Coord[]) => void;
 }
 
 export function PlayerPanel({
@@ -34,11 +43,17 @@ export function PlayerPanel({
   isActive,
   isLocal,
   pendingTile,
+  unaffordableIds,
   legalKeys,
   invalidKey,
   onSelectTile,
   onPlace,
   onDiscard,
+  pendingBedId,
+  unaffordableBedIds,
+  bedCandidates,
+  onSelectBed,
+  onPlaceBed,
 }: PlayerPanelProps): React.ReactElement {
   return (
     <article
@@ -74,6 +89,8 @@ export function PlayerPanel({
             pendingTile={isLocal ? pendingTile : null}
             onPlace={onPlace}
             compact={!isLocal}
+            bedCandidates={isLocal ? bedCandidates : undefined}
+            onPlaceBed={onPlaceBed}
           />
           <span className="tg-plot-label">{LABELS.gardenPlot}</span>
         </div>
@@ -83,14 +100,65 @@ export function PlayerPanel({
             <Shed
               tiles={player.hand}
               pendingTileId={pendingTile?.id ?? null}
+              unaffordableIds={unaffordableIds}
               interactive={isActive}
               onSelect={onSelectTile}
             />
             <Floor floor={player.floor} onDiscard={onDiscard} />
+            <BedShelf
+              beds={player.beds}
+              pendingBedId={pendingBedId ?? null}
+              unaffordableBedIds={unaffordableBedIds}
+              interactive={isActive}
+              onSelect={onSelectBed}
+            />
           </div>
         )}
       </div>
     </article>
+  );
+}
+
+/** Expansion storage: up to 2 held flower beds; click to select for placement. */
+function BedShelf({
+  beds,
+  pendingBedId,
+  unaffordableBedIds,
+  interactive,
+  onSelect,
+}: {
+  beds: HeldBed[];
+  pendingBedId: string | null;
+  unaffordableBedIds?: Set<string>;
+  interactive: boolean;
+  onSelect?: (bed: HeldBed) => void;
+}): React.ReactElement {
+  return (
+    <div className="tg-bedshelf" title={`${LABELS.flowerBed} storage (max 2)`}>
+      <span className="tg-floor-label">{LABELS.flowerBed}s</span>
+      <div className="tg-floor-tiles">
+        {beds.length === 0 && <span className="tg-empty-note">none</span>}
+        {beds.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            className={`tg-btn tg-bed-chip${
+              pendingBedId === b.id ? ' is-selected' : ''
+            }${unaffordableBedIds?.has(b.id) ? ' is-unaffordable' : ''}`}
+            disabled={!interactive || unaffordableBedIds?.has(b.id)}
+            title={
+              unaffordableBedIds?.has(b.id)
+                ? "Can't afford this bed's printed tile cost"
+                : undefined
+            }
+            onClick={() => onSelect?.(b)}
+          >
+            {b.faceDown ? `▣ ${b.spaces}-space` : `⬡ ${b.spaces}-space`}
+            {b.printedTile && <Tile tile={b.printedTile} size={12} />}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
