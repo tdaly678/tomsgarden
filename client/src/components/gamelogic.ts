@@ -65,15 +65,62 @@ export function isLegalPlacement(
     .map((c) => occupied.get(coordKey(c)))
     .filter((t): t is Tile => !!t);
 
-  if (neigh.length === 0) return true; // isolated placement allowed
-
-  // No identical-adjacent.
-  for (const n of neigh) {
-    if (n.color === tile.color && patternOf(n) === tilePat) return false;
+  if (neigh.length > 0) {
+    // No identical-adjacent.
+    for (const n of neigh) {
+      if (n.color === tile.color && patternOf(n) === tilePat) return false;
+    }
+    // Must share pattern OR color with at least one neighbor.
+    const shares = neigh.some(
+      (n) => n.color === tile.color || patternOf(n) === tilePat,
+    );
+    if (!shares) return false;
   }
 
-  // Must share pattern OR color with at least one neighbor.
-  return neigh.some((n) => n.color === tile.color || patternOf(n) === tilePat);
+  // Rulebook group rule: the placement may not create or extend a pattern- or
+  // color-group that would then contain two identical hexagons — including by
+  // CONNECTING previously separate groups (mirrors engine canPlaceHexAt).
+  return !wouldGroupContainDuplicates(tile, target.at, placed);
+}
+
+function wouldGroupContainDuplicates(
+  tile: Tile,
+  at: Coord,
+  placed: PlacedView[],
+): boolean {
+  const tilePat = patternOf(tile);
+  const all: { at: Coord; color: string; pat: PatternId }[] = [
+    ...placed.map((p) => ({
+      at: p.at,
+      color: p.tile.color,
+      pat: patternOf(p.tile),
+    })),
+    { at, color: tile.color, pat: tilePat },
+  ];
+  for (const by of ['pattern', 'color'] as const) {
+    const match = (m: { color: string; pat: PatternId }): boolean =>
+      by === 'pattern' ? m.pat === tilePat : m.color === tile.color;
+    const byKey = new Map<string, { at: Coord; color: string; pat: PatternId }>();
+    for (const m of all) if (match(m)) byKey.set(coordKey(m.at), m);
+    const visited = new Set<string>([coordKey(at)]);
+    const stack: Coord[] = [at];
+    const seenHex = new Set<string>([`${tile.color}/${tilePat}`]);
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const n of neighbors(cur)) {
+        const k = coordKey(n);
+        if (visited.has(k)) continue;
+        const member = byKey.get(k);
+        if (!member) continue;
+        visited.add(k);
+        const hk = `${member.color}/${member.pat}`;
+        if (seenHex.has(hk)) return true;
+        seenHex.add(hk);
+        stack.push(member.at);
+      }
+    }
+  }
+  return false;
 }
 
 /** All legal target space keys for a tile. */
@@ -198,4 +245,42 @@ export function groupByColor(tiles: Tile[]): Map<string, Tile[]> {
     m.set(t.color, arr);
   }
   return m;
+}
+
+/**
+ * Group tiles by pattern (acquire may instead take ALL of one pattern,
+ * skipping identical-hexagon duplicates).
+ */
+export function groupByPattern(tiles: Tile[]): Map<string, Tile[]> {
+  const m = new Map<string, Tile[]>();
+  for (const t of tiles) {
+    const p = patternOf(t);
+    const arr = m.get(p) ?? [];
+    arr.push(t);
+    m.set(p, arr);
+  }
+  return m;
+}
+
+/**
+ * The tiles actually acquired for a selector over a source's tiles: all
+ * matching tiles minus identical-hexagon duplicates (one copy each kept).
+ */
+export function acquiredTiles(
+  tiles: Tile[],
+  select: { by: 'color'; color: string } | { by: 'pattern'; pattern: string },
+): Tile[] {
+  const match =
+    select.by === 'color'
+      ? tiles.filter((t) => t.color === select.color)
+      : tiles.filter((t) => patternOf(t) === select.pattern);
+  const seen = new Set<string>();
+  const out: Tile[] = [];
+  for (const t of match) {
+    const key = `${t.color}:${patternOf(t)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
 }

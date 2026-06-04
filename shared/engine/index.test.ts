@@ -71,6 +71,7 @@ function makeState(
     activePlayerIndex: 0,
     firstPlayerIndex: 0,
     displayTiles: [],
+    tower: [],
     displayExpansions: [],
     expansionStacks: [[], [], [], []],
     expansionSupply: 0,
@@ -101,7 +102,9 @@ describe('setupGame', () => {
     expect(s.phase).toBe('drafting');
     // 108 total, 4 moved to display
     expect(s.bag.length).toBe(108 - 4);
-    expect(s.displayTiles.length).toBe(4);
+    // the 4 fill tiles sit ON the round-1 stack-top expansion
+    expect(s.displayExpansions[0].tiles.length).toBe(4);
+    expect(s.displayExpansions[0].onStack).toBe(true);
     for (const p of s.players) {
       expect(p.score).toBe(15);
       expect(countJokers(p)).toBe(3);
@@ -117,9 +120,11 @@ describe('setupGame', () => {
     const a = setupGame({ roomId: 'r', players, seed: 7 });
     const b = setupGame({ roomId: 'r', players, seed: 7 });
     const c = setupGame({ roomId: 'r', players, seed: 8 });
-    expect(a.displayTiles).toEqual(b.displayTiles);
+    expect(a.displayExpansions[0].tiles).toEqual(b.displayExpansions[0].tiles);
     expect(a.bag).toEqual(b.bag);
-    expect(a.displayTiles).not.toEqual(c.displayTiles);
+    expect(a.displayExpansions[0].tiles).not.toEqual(
+      c.displayExpansions[0].tiles,
+    );
   });
 
   it('starts from scratch: empty 13-hex fountain garden, no tiles, no expansions', () => {
@@ -241,6 +246,170 @@ describe('placement adjacency', () => {
     expect(canPlaceHexAt(p, hx('pattern1', 'color2'), { q: 1, r: 0 })).toBe(
       false,
     ); // occupied
+  });
+});
+
+describe('rulebook compliance regressions', () => {
+  it('placement may not CONNECT two groups that would then contain identical hexagons (#31)', () => {
+    // Line: [p1/c1] [empty] [p1/c1] — placing p1/c2 in the middle would merge
+    // a pattern1 group containing two identical p1/c1 hexes. Both adjacency
+    // checks pass (shares pattern, no identical neighbor) but the group rule
+    // must forbid it.
+    const p = makePlayer('p1', {
+      placed: [
+        { at: { q: 0, r: 0 }, hex: hx('pattern1', 'color1') },
+        { at: { q: 2, r: 0 }, hex: hx('pattern1', 'color1') },
+      ],
+    });
+    expect(canPlaceHexAt(p, hx('pattern1', 'color2'), { q: 1, r: 0 })).toBe(
+      false,
+    );
+    // but a different pattern, same color as neither -> mixed: c1 bridge of
+    // same color is also illegal (color group would hold two p1/c1? no —
+    // color group: c1,c1,c1 with patterns p1,p?,p1 -> two identical p1/c1).
+    expect(canPlaceHexAt(p, hx('pattern2', 'color1'), { q: 1, r: 0 })).toBe(
+      false,
+    );
+  });
+
+  it('Phase 3 returns display expansions to supply and discards their tiles to the tower (#47, #48)', () => {
+    const exp = {
+      id: 'e1',
+      hex: hx('pattern1', 'color1'),
+      spaces: 5 as const,
+      feature: 'pavilion' as const,
+      tiles: [hx('pattern2', 'color2')],
+      faceUp: false,
+    };
+    const state = makeState(
+      [makePlayer('p1', { passed: true }), makePlayer('p2', { passed: true })],
+      {
+        phase: 'scoring',
+        round: 1,
+        displayExpansions: [exp],
+        expansionSupply: 3,
+        bag: [],
+        tower: [],
+        expansionStacks: [[], [], [], []],
+      },
+    );
+    const next = advanceRound(state);
+    expect(next.displayExpansions.length).toBe(0); // round-2 stack empty here
+    expect(next.expansionSupply).toBe(4);
+    expect(next.tower).toContainEqual(hx('pattern2', 'color2'));
+  });
+
+  it('tower is recycled into the bag on shortage (#51)', () => {
+    const stackTop = {
+      id: 'cov',
+      hex: hx('pattern5', 'color5'),
+      spaces: 5 as const,
+      feature: 'pavilion' as const,
+      tiles: [hx('pattern1', 'color1')],
+      faceUp: false,
+      onStack: true,
+    };
+    const nextTop = { ...stackTop, id: 'top2', tiles: [], onStack: false };
+    const state = makeState([makePlayer('p1'), makePlayer('p2')], {
+      displayExpansions: [stackTop],
+      expansionStacks: [[nextTop], [], [], []],
+      bag: [],
+      tower: [
+        hx('pattern6', 'color1'),
+        hx('pattern6', 'color2'),
+        hx('pattern6', 'color3'),
+        hx('pattern6', 'color4'),
+      ],
+    });
+    const next = applyAction(state, {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'pattern', pattern: 'pattern1' },
+    });
+    const top2 = next.displayExpansions.find((e) => e.id === 'top2')!;
+    expect(top2.tiles.length).toBe(4);
+    expect(next.tower.length).toBe(0);
+  });
+
+  it('held expansions can be used as payment; they return to the supply (#26, #27)', () => {
+    const p = makePlayer('p1', {
+      storage: [{ kind: 'tile', hex: hx('pattern2', 'color1') }],
+      expansionStore: [
+        // printed hexagon same pattern (different color) as the placed tile
+        { id: 'e1', spaces: 5, hex: hx('pattern2', 'color2'), faceDown: false },
+      ],
+    });
+    const state = makeState([p, makePlayer('p2')], { expansionSupply: 0 });
+    const next = applyAction(state, {
+      type: 'PlaceTile',
+      playerId: 'p1',
+      hex: hx('pattern2', 'color1'),
+      at: { q: 0, r: 0 },
+      payment: [{ kind: 'expansion', expansionId: 'e1' }],
+    });
+    expect(next.players[0].placed.length).toBe(1);
+    expect(next.players[0].expansionStore.length).toBe(0);
+    expect(next.expansionSupply).toBe(1);
+  });
+
+  it('expansion payment obeys the set rule (printed hex counts)', () => {
+    const p = makePlayer('p1', {
+      storage: [{ kind: 'tile', hex: hx('pattern2', 'color1') }],
+      expansionStore: [
+        // mismatched: neither same pattern nor same color
+        { id: 'e1', spaces: 5, hex: hx('pattern3', 'color4'), faceDown: false },
+      ],
+    });
+    expect(() =>
+      validatePayment(p, hx('pattern2', 'color1'), [
+        { kind: 'expansion', expansionId: 'e1' },
+      ]),
+    ).toThrow(/all-same-pattern or all-same-color/);
+  });
+
+  it('pass may discard held expansions for minus printed value (#38)', () => {
+    const p = makePlayer('p1', {
+      expansionStore: [
+        { id: 'e1', spaces: 5, hex: hx('pattern4', 'color1'), faceDown: false },
+      ],
+    });
+    const state = makeState([p, makePlayer('p2')], { expansionSupply: 0 });
+    const next = applyAction(state, {
+      type: 'Pass',
+      playerId: 'p1',
+      discardExpansionIds: ['e1'],
+    });
+    // -4 expansion, -1 first pass
+    expect(next.players[0].score).toBe(STARTING_SCORE - 5);
+    expect(next.players[0].expansionStore.length).toBe(0);
+    expect(next.expansionSupply).toBe(1);
+  });
+
+  it('final scoring penalizes leftover held expansions by printed value (#54)', () => {
+    const p = makePlayer('p1', {
+      expansionStore: [
+        { id: 'e1', spaces: 5, hex: hx('pattern5', 'color1'), faceDown: false },
+      ],
+    });
+    expect(scoreFinalForPlayer(p, DEFAULT_CONFIG)).toBe(-5);
+  });
+
+  it('payment tiles land in the tower (#27)', () => {
+    const p = makePlayer('p1', {
+      storage: [
+        { kind: 'tile', hex: hx('pattern2', 'color1') },
+        { kind: 'tile', hex: hx('pattern2', 'color2') },
+      ],
+    });
+    const state = makeState([p, makePlayer('p2')]);
+    const next = applyAction(state, {
+      type: 'PlaceTile',
+      playerId: 'p1',
+      hex: hx('pattern2', 'color1'),
+      at: { q: 0, r: 0 },
+      payment: [{ kind: 'tile', hex: hx('pattern2', 'color2') }],
+    });
+    expect(next.tower).toEqual([hx('pattern2', 'color2')]);
   });
 });
 
@@ -416,21 +585,15 @@ describe('applyAction: PlaceTile', () => {
 // ---------------------------------------------------------------------------
 
 describe('applyAction: Acquire', () => {
-  it('takes all matching colors for a pattern, dedupes identical, refills 4', () => {
+  it('takes all matching colors for a pattern; duplicate identical hexagons stay in display', () => {
     const state = makeState([makePlayer('p1'), makePlayer('p2')], {
       displayTiles: [
         hx('pattern1', 'color1'),
         hx('pattern1', 'color2'),
-        hx('pattern1', 'color2'), // duplicate -> take only one
+        hx('pattern1', 'color2'), // duplicate -> take only one, other STAYS
         hx('pattern2', 'color3'), // not matching
       ],
-      bag: [
-        hx('pattern6', 'color6'),
-        hx('pattern6', 'color5'),
-        hx('pattern6', 'color4'),
-        hx('pattern6', 'color3'),
-        hx('pattern6', 'color2'),
-      ],
+      bag: [hx('pattern6', 'color6')],
     });
     const next = applyAction(state, {
       type: 'Acquire',
@@ -439,15 +602,73 @@ describe('applyAction: Acquire', () => {
     });
     // 2 distinct pattern1 tiles into storage
     expect(next.players[0].storage.length).toBe(2);
-    // all pattern1 removed from display; pattern2 stays; plus 4 drawn
-    const remainingNonDraw = next.displayTiles.filter(
-      (t) => t.pattern !== 'pattern6',
-    );
-    expect(remainingNonDraw).toEqual([hx('pattern2', 'color3')]);
-    expect(
-      next.displayTiles.filter((t) => t.pattern === 'pattern6').length,
-    ).toBe(4);
+    // the duplicate identical copy remains in the display (rulebook #17)
+    expect(next.displayTiles).toEqual([
+      hx('pattern1', 'color2'),
+      hx('pattern2', 'color3'),
+    ]);
+    // no refill: no tile came from the round-stack top (rulebook #21)
     expect(next.bag.length).toBe(1);
+  });
+
+  it('refills 4 onto the next stack top ONLY when a tile was taken from the stack top', () => {
+    const stackTop = {
+      id: 'cov',
+      hex: hx('pattern5', 'color5'),
+      spaces: 5 as const,
+      feature: 'pavilion' as const,
+      tiles: [hx('pattern1', 'color1'), hx('pattern3', 'color3')],
+      faceUp: false,
+      onStack: true,
+    };
+    const nextTop = { ...stackTop, id: 'top2', tiles: [], onStack: false };
+    const state = makeState([makePlayer('p1'), makePlayer('p2')], {
+      displayExpansions: [stackTop],
+      expansionStacks: [[nextTop], [], [], []],
+      bag: [
+        hx('pattern6', 'color1'),
+        hx('pattern6', 'color2'),
+        hx('pattern6', 'color3'),
+        hx('pattern6', 'color4'),
+        hx('pattern6', 'color5'),
+      ],
+    });
+    const next = applyAction(state, {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'pattern', pattern: 'pattern1' },
+    });
+    // old top extended off the stack, leftover tile rides along
+    const cov = next.displayExpansions.find((e) => e.id === 'cov')!;
+    expect(cov.onStack).toBeFalsy();
+    expect(cov.faceUp).toBe(false); // still holds a tile -> stays face down
+    expect(cov.tiles).toEqual([hx('pattern3', 'color3')]);
+    // new stack top filled with exactly 4 tiles
+    const top2 = next.displayExpansions.find((e) => e.id === 'top2')!;
+    expect(top2.onStack).toBe(true);
+    expect(top2.tiles.length).toBe(4);
+    expect(next.bag.length).toBe(1);
+  });
+
+  it('flips a display expansion face up when its last tile is taken', () => {
+    const ext = {
+      id: 'ext',
+      hex: hx('pattern5', 'color5'),
+      spaces: 5 as const,
+      feature: 'pavilion' as const,
+      tiles: [hx('pattern1', 'color1')],
+      faceUp: false,
+      onStack: false,
+    };
+    const state = makeState([makePlayer('p1'), makePlayer('p2')], {
+      displayExpansions: [ext],
+    });
+    const next = applyAction(state, {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'pattern', pattern: 'pattern1' },
+    });
+    expect(next.displayExpansions[0].faceUp).toBe(true);
   });
 
   it('rejects acquire that would exceed 12-tile storage (full-storage forced choice)', () => {
@@ -529,11 +750,15 @@ describe('garden expansions', () => {
     ).toThrow(/2 expansion/);
   });
 
-  it('tile acquire flips the covered stack-top face up and feeds the next from the stack', () => {
-    const covered = { ...faceUpExp('cov', hx('pattern5', 'color5')), faceUp: false };
+  it('taking the stack-top last tile extends it, flips it face up, and feeds the next from the stack', () => {
+    const covered = {
+      ...faceUpExp('cov', hx('pattern5', 'color5')),
+      faceUp: false,
+      onStack: true,
+      tiles: [hx('pattern1', 'color1')],
+    };
     const nextTop = { ...faceUpExp('top2', hx('pattern6', 'color6')), faceUp: false };
     const state = makeState([makePlayer('p1'), makePlayer('p2')], {
-      displayTiles: [hx('pattern1', 'color1')],
       displayExpansions: [covered],
       expansionStacks: [[nextTop], [], [], []],
       bag: [hx('pattern2', 'color2'), hx('pattern2', 'color3')],
@@ -544,9 +769,11 @@ describe('garden expansions', () => {
       select: { by: 'pattern', pattern: 'pattern1' },
     });
     const cov = next.displayExpansions.find((e) => e.id === 'cov')!;
-    expect(cov.faceUp).toBe(true);
+    expect(cov.faceUp).toBe(true); // empty after the take -> flips
     const top2 = next.displayExpansions.find((e) => e.id === 'top2')!;
     expect(top2.faceUp).toBe(false);
+    expect(top2.onStack).toBe(true);
+    expect(top2.tiles.length).toBe(2); // bag only had 2
     expect(next.expansionStacks[0].length).toBe(0);
   });
 
@@ -1125,6 +1352,80 @@ describe('full 2-player game playthrough (integration)', () => {
     const b = runToEnd(999);
     expect(a.winnerIds).toEqual(b.winnerIds);
     expect(a.players.map((p) => p.score)).toEqual(b.players.map((p) => p.score));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateLegalMoves soundness: every generated move must be applicable.
+// Regression for verifier finding #1 (seed 183137): a PlaceExpansion whose
+// printedAt violated the group-duplicate rule was emitted because the move
+// generator did not mirror wouldGroupContainDuplicates.
+// ---------------------------------------------------------------------------
+
+describe('generateLegalMoves soundness (every move applies)', () => {
+  /**
+   * Play a full game for `seed`. At every decision point, verify that EVERY
+   * legal move applies without throwing, then advance with a pseudo-random
+   * legal move (deterministic per seed) to explore varied lines.
+   */
+  function assertAllMovesApply(seed: number, maxPlies = Infinity): void {
+    let state = setupGame({
+      roomId: 'soundness',
+      players: [
+        { id: 'p1', name: 'P1' },
+        { id: 'p2', name: 'P2' },
+      ],
+      seed,
+      config: DEFAULT_CONFIG,
+    });
+    let rngState = seed >>> 0 || 1;
+    const nextRand = (): number => {
+      // xorshift32
+      rngState ^= rngState << 13;
+      rngState ^= rngState >>> 17;
+      rngState ^= rngState << 5;
+      rngState >>>= 0;
+      return rngState;
+    };
+    let plies = 0;
+    let safety = 0;
+    while (state.phase !== 'finished' && plies < maxPlies) {
+      if (safety++ > 20000) throw new Error('game did not terminate');
+      if (state.phase === 'scoring') {
+        state = advanceRound(scoreRound(state));
+        continue;
+      }
+      if (state.activePlayerIndex === null) break;
+      const active = state.players[state.activePlayerIndex];
+      const moves = generateLegalMoves(state, active.id);
+      expect(moves.length).toBeGreaterThan(0);
+      for (const m of moves) {
+        try {
+          applyAction(state, m);
+        } catch (err) {
+          throw new Error(
+            `seed ${seed} ply ${plies}: generated move not applicable: ` +
+              `${JSON.stringify(m)} -> ${(err as Error).message}`,
+          );
+        }
+      }
+      // Bias toward non-Pass moves so boards grow and expansions get placed.
+      const nonPass = moves.filter((m) => m.type !== 'Pass');
+      const pool = nonPass.length > 0 && nextRand() % 10 !== 0 ? nonPass : moves;
+      state = applyAction(state, pool[nextRand() % pool.length]);
+      plies++;
+    }
+  }
+
+  it('regression: seed 183137 — every generated move applies for a full game', () => {
+    assertAllMovesApply(183137);
+  });
+
+  it('property: 50 random seeds, every generated move applies across plies', () => {
+    for (let i = 0; i < 50; i++) {
+      const seed = 100003 * (i + 1) + 7;
+      assertAllMovesApply(seed, 60);
+    }
   });
 });
 

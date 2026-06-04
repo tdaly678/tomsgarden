@@ -218,6 +218,8 @@ function LiveApp({ partyHost, initialRoom }: LiveAppProps): React.ReactElement {
         onSetReady={(ready) => clientRef.current?.setReady(ready)}
         onConfigure={(cfg) => clientRef.current?.configureRoom(cfg)}
         onKick={(pid) => clientRef.current?.kickPlayer(pid)}
+        onAddBot={(d) => clientRef.current?.addBot(d)}
+        onRemoveBot={(pid) => clientRef.current?.removeBot(pid)}
         onStart={() => clientRef.current?.startGame()}
         onLeave={leave}
       />

@@ -31,12 +31,23 @@ import type {
   RosterSeat,
 } from '@tomsgarden/shared';
 import {
+  advanceRound,
   applyAction,
   checkWin,
   scoreFinal,
+  scoreRound,
   setupGame,
   DEFAULT_CONFIG,
 } from '@tomsgarden/shared/engine';
+import {
+  createBot,
+  isBotDifficulty,
+  shouldScheduleBotMove,
+  botDelayMs,
+  botMoveRng,
+  turnKey,
+  type BotDifficulty,
+} from '@tomsgarden/shared/ai';
 
 /** Hard cap on seats regardless of host config. */
 const MAX_SEATS = 4;
@@ -103,6 +114,10 @@ interface Seat {
   ready: boolean;
   /** Whether a live connection currently occupies this seat. */
   connected: boolean;
+  /** Additive: this seat is a server-driven AI player (no socket). */
+  isBot?: boolean;
+  /** Additive: AI difficulty when isBot. */
+  difficulty?: BotDifficulty;
 }
 
 interface RoomConfig {
@@ -151,9 +166,15 @@ export default class TomsgardenServer implements Party.Server {
     if (config) this.config = config;
     if (seats) {
       // Restored seats start as disconnected; live sockets re-mark themselves.
-      for (const s of seats) this.seats.set(s.token, { ...s, connected: false });
+      // Restored seats start as disconnected — except bots, which are always
+      // "present" (they live in the server, not on a socket).
+      for (const s of seats) this.seats.set(s.token, { ...s, connected: s.isBot === true });
     }
     this.loaded = true;
+    // If the DO restarted mid-bot-turn, re-arm the bot driver. Any pending
+    // pre-restart timer is gone with the old instance; the turn-key guard
+    // makes re-arming safe even if it were not.
+    this.maybeScheduleBotMove();
   }
 
   private async persist(): Promise<void> {
@@ -237,6 +258,12 @@ export default class TomsgardenServer implements Party.Server {
         return;
       case 'KickPlayer':
         await this.handleKick(parsed.playerId, sender);
+        return;
+      case 'AddBot':
+        await this.handleAddBot(parsed.difficulty, sender);
+        return;
+      case 'RemoveBot':
+        await this.handleRemoveBot(parsed.playerId, sender);
         return;
       case 'ActionMsg':
         await this.handleAction(parsed.action, sender);
@@ -519,6 +546,75 @@ export default class TomsgardenServer implements Party.Server {
     this.broadcastState();
   }
 
+  /** Host-only, lobby-only: seat an AI player with the given difficulty. */
+  private async handleAddBot(
+    difficulty: unknown,
+    sender: Party.Connection<ConnState>,
+  ): Promise<void> {
+    const seat = this.requireSeat(sender);
+    if (!seat) return;
+    if (!seat.isHost) {
+      this.send(sender, { type: 'Error', code: 'NOT_HOST', message: 'Only the host can add an AI player.' });
+      return;
+    }
+    if (this.game) {
+      this.send(sender, { type: 'Error', code: 'NOT_IN_LOBBY', message: 'Cannot add an AI player once the game has started.' });
+      return;
+    }
+    if (!isBotDifficulty(difficulty)) {
+      this.send(sender, { type: 'Error', code: 'INVALID_INPUT', message: "AI difficulty must be 'easy', 'medium' or 'hard'." });
+      return;
+    }
+    if (this.seats.size >= this.config.maxPlayers) {
+      this.send(sender, { type: 'Error', code: 'ROOM_FULL', message: `Room is full (${this.config.maxPlayers} seats).` });
+      return;
+    }
+    const token = `bot:${crypto.randomUUID()}`;
+    const playerId = crypto.randomUUID();
+    const seatIndex = this.nextFreeSeatIndex();
+    const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+    const botSeat: Seat = {
+      playerId,
+      token,
+      seat: seatIndex,
+      name: `Bot (${label})`,
+      isHost: false,
+      ready: true, // bots are always ready
+      connected: true, // bots are always "present"
+      isBot: true,
+      difficulty,
+    };
+    this.seats.set(token, botSeat);
+    await this.persist();
+    this.broadcastState();
+  }
+
+  /** Host-only, lobby-only: remove a previously added AI player. */
+  private async handleRemoveBot(
+    targetPlayerId: string,
+    sender: Party.Connection<ConnState>,
+  ): Promise<void> {
+    const seat = this.requireSeat(sender);
+    if (!seat) return;
+    if (!seat.isHost) {
+      this.send(sender, { type: 'Error', code: 'NOT_HOST', message: 'Only the host can remove an AI player.' });
+      return;
+    }
+    if (this.game) {
+      this.send(sender, { type: 'Error', code: 'NOT_IN_LOBBY', message: 'Cannot remove an AI player once the game has started.' });
+      return;
+    }
+    const target = [...this.seats.values()].find((s) => s.playerId === targetPlayerId);
+    if (!target || !target.isBot) {
+      this.send(sender, { type: 'Error', code: 'UNKNOWN_PLAYER', message: 'No such AI player.' });
+      return;
+    }
+    this.seats.delete(target.token);
+    this.reindexSeats();
+    await this.persist();
+    this.broadcastState();
+  }
+
   private async handleStartGame(sender: Party.Connection<ConnState>): Promise<void> {
     const seat = this.requireSeat(sender);
     if (!seat) return;
@@ -555,9 +651,10 @@ export default class TomsgardenServer implements Party.Server {
       config: DEFAULT_CONFIG,
     });
     // Clear ready flags (no longer meaningful).
-    for (const s of this.seats.values()) s.ready = false;
+    for (const s of this.seats.values()) if (!s.isBot) s.ready = false;
     await this.persist();
     this.broadcastState();
+    this.maybeScheduleBotMove();
   }
 
   // -------------------------------------------------------------------------
@@ -588,9 +685,8 @@ export default class TomsgardenServer implements Party.Server {
 
     // Authoritative rules application. The engine validates legality + scoring;
     // the server NEVER trusts the client for outcomes.
-    let next: GameState;
     try {
-      next = applyAction(this.game, action);
+      await this.applyAndAdvance(action);
     } catch (err) {
       this.send(sender, {
         type: 'Error',
@@ -599,21 +695,120 @@ export default class TomsgardenServer implements Party.Server {
       });
       return;
     }
+  }
 
-    // Resolve end-of-game if the engine signals a win condition. The engine
-    // owns final scoring and sets `winnerIds` / `phase: 'finished'`.
+  /**
+   * The single authoritative action path (humans AND bots): applyAction, then
+   * round scoring / advance / final scoring, persist, broadcast, and schedule
+   * the next bot move if the new active player is a bot. Throws on an illegal
+   * move (callers surface the error).
+   */
+  private async applyAndAdvance(action: Action): Promise<void> {
+    if (!this.game) throw new Error('No game in progress.');
+    let next: GameState = applyAction(this.game, action);
+
+    // Phase 2 + 3: when everyone has passed the engine enters 'scoring'.
+    // The server (authoritative) immediately applies round scoring and then
+    // either prepares the next round or (after round 4) runs final scoring —
+    // advanceRound handles both, setting phase 'drafting' or 'finished'.
     try {
+      if (next.phase === 'scoring') {
+        next = advanceRound(scoreRound(next));
+      }
+      // Defensive: ensure a win signal always resolves to final scoring.
       const winners = checkWin(next);
       if (winners && next.phase !== 'finished') {
         next = scoreFinal(next);
       }
-    } catch {
-      // Defensive: never let scoring crash the room.
+    } catch (err) {
+      // Defensive: never let scoring crash the room — but never silently
+      // strand it in 'scoring' either. Log, tell clients, and force the
+      // round to resolve via final scoring so play can conclude.
+      console.error('round scoring/advance failed:', err);
+      const errMsg: ServerMessage = {
+        type: 'Error',
+        code: 'SCORING_ERROR',
+        message:
+          'Round scoring failed unexpectedly; the game has been resolved with final scoring.',
+      };
+      this.room.broadcast(JSON.stringify(errMsg));
+      if (next.phase === 'scoring') {
+        try {
+          next = scoreFinal(next);
+        } catch (err2) {
+          console.error('final-scoring fallback also failed:', err2);
+          next = { ...next, phase: 'finished' };
+        }
+      }
     }
 
     this.game = next;
     await this.persist();
     this.broadcastState();
+    this.maybeScheduleBotMove();
+  }
+
+  // -------------------------------------------------------------------------
+  // Bot turn driving
+  // -------------------------------------------------------------------------
+
+  /** Player ids of all bot seats. */
+  private botPlayerIds(): Set<string> {
+    return new Set(
+      [...this.seats.values()].filter((s) => s.isBot).map((s) => s.playerId),
+    );
+  }
+
+  /**
+   * The turn key the currently pending bot timer was armed for, or null when
+   * no timer is pending. Double-fire / out-of-turn protection: when the timer
+   * fires it recomputes `turnKey(this.game)` and no-ops unless it still
+   * matches — so a stale timer (state advanced, DO restarted and re-armed,
+   * duplicate scheduling) can never act.
+   */
+  private pendingBotKey: string | null = null;
+
+  /** If the active player is a bot, arm a delayed move for this exact turn. */
+  private maybeScheduleBotMove(): void {
+    if (!this.game) return;
+    const botId = shouldScheduleBotMove(this.game, this.botPlayerIds());
+    if (!botId) return;
+
+    const key = turnKey(this.game);
+    if (this.pendingBotKey === key) return; // already armed for this turn
+    this.pendingBotKey = key;
+
+    const rng = botMoveRng(this.game);
+    const delay = botDelayMs(rng);
+    setTimeout(() => {
+      void this.fireBotMove(key, botId);
+    }, delay);
+  }
+
+  /** Timer body: re-validate, choose via the bot, route through applyAndAdvance. */
+  private async fireBotMove(key: string, botId: string): Promise<void> {
+    // Stale-timer guard (double-fire / out-of-turn protection).
+    if (!this.game) return;
+    if (this.pendingBotKey !== key || turnKey(this.game) !== key) return;
+    const idx = this.game.activePlayerIndex;
+    const activeId = idx === null ? null : this.game.players[idx]?.id ?? null;
+    if (activeId !== botId) return;
+    const seat = [...this.seats.values()].find((s) => s.playerId === botId);
+    if (!seat?.isBot || !seat.difficulty) return;
+
+    this.pendingBotKey = null;
+    try {
+      const bot = createBot(seat.difficulty);
+      const action = bot.chooseAction(this.game, botId, botMoveRng(this.game));
+      await this.applyAndAdvance(action);
+    } catch {
+      // A bot must never crash the room. As a last resort, pass.
+      try {
+        await this.applyAndAdvance({ type: 'Pass', playerId: botId });
+      } catch {
+        // ignore — humans can still play; next state change re-arms bots.
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -655,6 +850,7 @@ export default class TomsgardenServer implements Party.Server {
       activePlayerIndex: null,
       firstPlayerIndex: 0,
       displayTiles: [],
+      tower: [],
       displayExpansions: [],
       expansionStacks: [[], [], [], []],
       expansionSupply: 0,
@@ -700,6 +896,7 @@ export default class TomsgardenServer implements Party.Server {
       isHost: s.isHost,
       ready: s.ready,
       connected: s.connected,
+      ...(s.isBot ? { isBot: true, difficulty: s.difficulty } : {}),
     }));
     return {
       type: 'Roster',

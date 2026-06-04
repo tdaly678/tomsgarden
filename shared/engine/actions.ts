@@ -30,7 +30,14 @@ export interface PlaceTileAction {
 
 export type Payment =
   | { readonly kind: 'tile'; readonly hex: Hexagon }
-  | { readonly kind: 'joker' };
+  | { readonly kind: 'joker' }
+  /**
+   * Discard a held garden expansion as payment (rulebook: costs are paid "by
+   * discarding that number of tiles and/or garden expansions"). Its printed
+   * hexagon participates in the set rule; the piece returns face down to the
+   * bottom of the supply.
+   */
+  | { readonly kind: 'expansion'; readonly expansionId: string };
 
 /**
  * C) Place a garden expansion from expansion storage into the garden.
@@ -64,8 +71,13 @@ export interface BuyExpansionAction {
 export interface PassAction {
   readonly type: 'Pass';
   readonly playerId: string;
-  /** Hexagons to discard from storage, scored as negative points. */
+  /** Tile hexagons to discard from storage, scored as negative points. */
   readonly discard?: Hexagon[];
+  /**
+   * Held garden expansions to discard (scored as minus their printed
+   * hexagon's pattern value; returned face down to the supply).
+   */
+  readonly discardExpansionIds?: string[];
 }
 
 export type EngineAction =

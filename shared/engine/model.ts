@@ -114,6 +114,12 @@ export interface DisplayExpansion {
   readonly tiles: Hexagon[];
   /** Face up (0 tiles -> draftable) vs face down. */
   readonly faceUp: boolean;
+  /**
+   * True only for the current round-stack's topmost expansion (still ON the
+   * stack). Taking a tile from it triggers the display-extension + refill
+   * (rulebook: "if you took at least one tile from the current round stack").
+   */
+  readonly onStack?: boolean;
 }
 
 /**
@@ -139,8 +145,14 @@ export interface EngineGameState {
   readonly activePlayerIndex: number | null;
   /** Index of the player holding the first-player marker. */
   readonly firstPlayerIndex: number;
-  /** Loose tiles in the display (the "center"). */
+  /**
+   * Loose tiles in the display NOT sitting on any expansion. In rulebook play
+   * every display tile sits on an expansion (`displayExpansions[].tiles`);
+   * this stays for wire compatibility and shortage edge cases. Usually empty.
+   */
   readonly displayTiles: Hexagon[];
+  /** Discarded tiles (the "tower"); recycled into the bag on shortage. */
+  readonly tower: Hexagon[];
   /** Garden expansions in the display. */
   readonly displayExpansions: DisplayExpansion[];
   /**

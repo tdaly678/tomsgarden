@@ -122,11 +122,16 @@ export interface GameState {
 // engineAdapter.ts before being sent over the wire.
 // ---------------------------------------------------------------------------
 
+/** How a draft group is declared: all of one color OR all of one pattern. */
+export type DraftSelector =
+  | { readonly by: 'color'; readonly color: TileColor }
+  | { readonly by: 'pattern'; readonly pattern: string };
+
 export interface DraftTilesAction {
   readonly type: 'DraftTiles';
   readonly playerId: string;
   readonly source: string | 'center';
-  readonly color: TileColor;
+  readonly select: DraftSelector;
 }
 
 export interface PlaceTileAction {

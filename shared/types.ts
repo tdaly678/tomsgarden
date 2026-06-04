@@ -100,6 +100,18 @@ export interface StartGameMessage {
   readonly type: 'StartGame';
 }
 
+/** Client -> server: host adds an AI player to an empty seat (lobby only). */
+export interface AddBotMessage {
+  readonly type: 'AddBot';
+  readonly difficulty: 'easy' | 'medium' | 'hard';
+}
+
+/** Client -> server: host removes an AI player (lobby only). */
+export interface RemoveBotMessage {
+  readonly type: 'RemoveBot';
+  readonly playerId: string;
+}
+
 /** Client -> server: host kicks a player from a seat (lobby only). */
 export interface KickPlayerMessage {
   readonly type: 'KickPlayer';
@@ -135,6 +147,7 @@ export interface ErrorMessage {
     | 'UNKNOWN_PLAYER'
     | 'SEAT_OCCUPIED'
     | 'INVALID_INPUT'
+    | 'SCORING_ERROR'
     | 'UNKNOWN';
   readonly message: string;
 }
@@ -159,6 +172,10 @@ export interface RosterSeat {
   readonly ready: boolean;
   /** Whether a live socket currently occupies the seat. */
   readonly connected: boolean;
+  /** Additive: true when the seat is occupied by a server-driven AI player. */
+  readonly isBot?: boolean;
+  /** Additive: AI difficulty when `isBot` ('easy' | 'medium' | 'hard'). */
+  readonly difficulty?: string;
 }
 
 /**
@@ -189,7 +206,9 @@ export type ClientMessage =
   | ConfigureRoomMessage
   | SetReadyMessage
   | StartGameMessage
-  | KickPlayerMessage;
+  | KickPlayerMessage
+  | AddBotMessage
+  | RemoveBotMessage;
 
 /** Anything the server may send to a client. */
 export type ServerMessage =

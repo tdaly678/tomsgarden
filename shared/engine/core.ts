@@ -216,15 +216,15 @@ export function setupGame(opts: SetupOptions): EngineGameState {
   const expansionSupply = TOTAL_EXPANSIONS - ROUNDS * stackSize;
 
   // Initial display: the round-1 stack's top expansion enters the display
-  // face down, covered by exactly 4 random tiles (modelled as loose display
-  // tiles). When those tiles are drafted, the expansion is uncovered (flips
-  // face up, revealing pavilion + printed hexagon) and the next stack top
-  // comes out with 4 fresh tiles.
+  // face down (still "on the stack"), covered by exactly 4 random tiles that
+  // sit ON it. When a tile is taken from it, the expansion is moved off the
+  // stack to extend the display (keeping leftover tiles) and the next stack
+  // top comes out with 4 fresh tiles. Empty display expansions flip face up.
   const firstFill = bag.slice(bag.length - FOUNTAIN_REFILL_TILES);
   const remaining = bag.slice(0, bag.length - FOUNTAIN_REFILL_TILES);
   const top = expansionStacks[0].shift();
   const displayExpansions: DisplayExpansion[] = top
-    ? [{ ...top, faceUp: false }]
+    ? [{ ...top, faceUp: false, onStack: true, tiles: firstFill }]
     : [];
 
   return {
@@ -234,7 +234,8 @@ export function setupGame(opts: SetupOptions): EngineGameState {
     players: playerStates,
     activePlayerIndex: opts.startingPlayerIndex ?? 0,
     firstPlayerIndex: opts.startingPlayerIndex ?? 0,
-    displayTiles: firstFill,
+    displayTiles: [],
+    tower: [],
     displayExpansions,
     expansionStacks,
     expansionSupply,
@@ -270,15 +271,28 @@ function acquirableHexagons(
       ? h.pattern === select.pattern
       : h.color === select.color;
 
-  // Loose display tiles matching, de-duplicated (take only one of identical).
+  // Display tiles (loose pool + tiles sitting on display expansions),
+  // de-duplicated: of identical hexagons, take only ONE (rulebook; the other
+  // copies stay in the display). Canonical choice: prefer the copy on the
+  // expansion holding the fewest tiles (empties expansions sooner, matching
+  // the rulebook example's heuristic).
+  const sources: { hex: Hexagon; weight: number }[] = [];
+  for (const t of state.displayTiles) {
+    if (matchTile(t)) sources.push({ hex: t, weight: 0 });
+  }
+  for (const e of state.displayExpansions) {
+    for (const t of e.tiles) {
+      if (matchTile(t)) sources.push({ hex: t, weight: e.tiles.length });
+    }
+  }
+  sources.sort((a, b) => a.weight - b.weight);
   const seen = new Set<string>();
   const tiles: Hexagon[] = [];
-  for (const t of state.displayTiles) {
-    if (!matchTile(t)) continue;
-    const k = hexKey(t);
+  for (const s of sources) {
+    const k = hexKey(s.hex);
     if (seen.has(k)) continue;
     seen.add(k);
-    tiles.push(t);
+    tiles.push(s.hex);
   }
 
   // Matching face-up display expansions (their face hexagon matches).
@@ -325,11 +339,54 @@ export function canPlaceHexAt(
   }
   // never identical adjacent
   if (adj.some((a) => sameHex(a.hex, hex))) return false;
-  if (adj.length === 0) return true; // isolated placement allowed
-  // must share pattern OR color with at least one neighbour
-  return adj.some(
-    (a) => a.hex.pattern === hex.pattern || a.hex.color === hex.color,
-  );
+  if (adj.length > 0) {
+    // must share pattern OR color with at least one neighbour
+    const shares = adj.some(
+      (a) => a.hex.pattern === hex.pattern || a.hex.color === hex.color,
+    );
+    if (!shares) return false;
+  }
+  // Rulebook: you may never create or extend a group (pattern-group or
+  // color-group) that would then contain two identical hexagons — including
+  // by CONNECTING previously separate groups, not just direct adjacency.
+  return !wouldGroupContainDuplicates(p.placed, hex, at);
+}
+
+/**
+ * After hypothetically placing `hex` at `at`, would the pattern-group or the
+ * color-group containing it hold two identical hexagons?
+ */
+function wouldGroupContainDuplicates(
+  placed: readonly PlacedHex[],
+  hex: Hexagon,
+  at: Axial,
+): boolean {
+  const all: PlacedHex[] = [...placed, { at, hex }];
+  for (const by of ['pattern', 'color'] as const) {
+    const match = (h: Hexagon): boolean =>
+      by === 'pattern' ? h.pattern === hex.pattern : h.color === hex.color;
+    const byKey = new Map<string, PlacedHex>();
+    for (const m of all) if (match(m.hex)) byKey.set(axialKey(m.at), m);
+    // flood fill the group containing `at`
+    const visited = new Set<string>([axialKey(at)]);
+    const stack: Axial[] = [at];
+    const seenHex = new Set<string>([hexKey(hex)]);
+    while (stack.length) {
+      const cur = stack.pop()!;
+      for (const n of neighbors(cur)) {
+        const k = axialKey(n);
+        if (visited.has(k)) continue;
+        const member = byKey.get(k);
+        if (!member) continue;
+        visited.add(k);
+        const hk = hexKey(member.hex);
+        if (seenHex.has(hk)) return true; // duplicate within the group
+        seenHex.add(hk);
+        stack.push(member.at);
+      }
+    }
+  }
+  return false;
 }
 
 /** All feature spaces fully surrounded *after* a hypothetical placement set. */
@@ -367,6 +424,28 @@ function newlySurroundedFeatures(
  *    identical hexagons. Jokers are wild and excluded from that constraint.
  *  - All payment items must actually be available in storage.
  */
+/** Resolve a payment expansion's printed hexagon from the player's store. */
+function takeHeldExpansionHex(
+  p: PlayerEngineState,
+  expansionId: string,
+  payment: readonly Payment[],
+): Hexagon {
+  const uses = payment.filter(
+    (x) => x.kind === 'expansion' && x.expansionId === expansionId,
+  ).length;
+  if (uses > 1) {
+    throw new IllegalMoveError('same expansion used twice in payment');
+  }
+  const held = p.expansionStore.find((e) => e.id === expansionId);
+  if (!held) {
+    throw new IllegalMoveError(`payment expansion ${expansionId} not held`);
+  }
+  if (!held.hex) {
+    throw new IllegalMoveError('face-down expansion has no hexagon to pay with');
+  }
+  return held.hex;
+}
+
 export function validatePayment(
   p: PlayerEngineState,
   hex: Hexagon,
@@ -391,9 +470,12 @@ export function validatePayment(
     (s) => s.kind === 'tile' && sameHex(s.hex, hex),
     `placed tile ${hexKey(hex)}`,
   );
+  const expansionHexes: Hexagon[] = [];
   for (const pay of payment) {
     if (pay.kind === 'joker') {
       take((s) => s.kind === 'joker', 'joker');
+    } else if (pay.kind === 'expansion') {
+      expansionHexes.push(takeHeldExpansionHex(p, pay.expansionId, payment));
     } else {
       take(
         (s) => s.kind === 'tile' && sameHex(s.hex, pay.hex),
@@ -402,12 +484,13 @@ export function validatePayment(
     }
   }
 
-  // The set rule: all real hexagons involved (placed + real-tile payments).
+  // The set rule: all real hexagons involved (placed + tile/expansion payments).
   const realHexes: Hexagon[] = [
     hex,
     ...payment
       .filter((x): x is Extract<Payment, { kind: 'tile' }> => x.kind === 'tile')
       .map((x) => x.hex),
+    ...expansionHexes,
   ];
   // no two identical
   const keys = realHexes.map(hexKey);
@@ -489,14 +572,17 @@ export function generateLegalMoves(
           .map((n) => placedAt(p, n))
           .filter((x): x is PlacedHex => !!x);
         if (adj.some((a) => sameHex(a.hex, held.hex!))) return false;
-        return (
+        const sharesOrIsolated =
           adj.length === 0 ||
           adj.some(
             (a) =>
               a.hex.pattern === held.hex!.pattern ||
               a.hex.color === held.hex!.color,
-          )
-        );
+          );
+        if (!sharesOrIsolated) return false;
+        // Mirror applyPlaceExpansion's group-duplicate rule so every
+        // generated move is guaranteed applicable.
+        return !wouldGroupContainDuplicates(p.placed, held.hex!, c);
       });
       if (!printedAt) continue;
       moves.push({
@@ -753,16 +839,33 @@ function applyAcquire(
   const next = clone(state);
   const np = next.players[idx];
 
-  // Move matched (deduped) tiles into storage; remove ALL matching copies from
-  // display, but if duplicates existed only ONE went to storage (rest discarded
-  // to the tower / out of play, matching "take only one of identical").
-  const matchTile = (h: Hexagon): boolean =>
-    action.select.by === 'pattern'
-      ? h.pattern === action.select.pattern
-      : h.color === action.select.color;
-
+  // Take exactly ONE copy of each deduped hexagon out of the display. Of
+  // identical duplicates, the untaken copies REMAIN in the display (rulebook:
+  // "take only one of them"). Removal prefers the loose pool, then the
+  // expansion with the fewest tiles (matches acquirableHexagons' choice).
+  let tookFromStack = false;
+  for (const hex of tiles) {
+    let removed = false;
+    const li = next.displayTiles.findIndex((t) => sameHex(t, hex));
+    if (li !== -1) {
+      next.displayTiles.splice(li, 1);
+      removed = true;
+    }
+    if (!removed) {
+      const holders = next.displayExpansions
+        .filter((e) => e.tiles.some((t) => sameHex(t, hex)))
+        .sort((a, b) => a.tiles.length - b.tiles.length);
+      const holder = holders[0];
+      if (holder) {
+        const ti = holder.tiles.findIndex((t) => sameHex(t, hex));
+        holder.tiles.splice(ti, 1);
+        if (holder.onStack) tookFromStack = true;
+        removed = true;
+      }
+    }
+    if (!removed) throw new IllegalMoveError('acquire desync: tile not found');
+  }
   np.storage.push(...tiles.map((h) => ({ kind: 'tile' as const, hex: h })));
-  next.displayTiles = next.displayTiles.filter((t) => !matchTile(t));
 
   // Acquired expansions leave the display and go to expansion storage.
   const acquiredIds = new Set(expansions.map((e) => e.id));
@@ -780,30 +883,96 @@ function applyAcquire(
     (e) => !acquiredIds.has(e.id),
   );
 
-  // Display refill: if at least one loose tile was taken, the covered stack-top
-  // expansion is uncovered (flips face up, revealing pavilion + hexagon), then
-  // the next expansion of the current round's stack comes out under 4 fresh
-  // tiles drawn from the bag.
-  if (tiles.length > 0) {
-    const covered = next.displayExpansions.find((e) => !e.faceUp);
-    if (covered) covered.faceUp = true;
+  // Display refill — ONLY when at least one tile was taken from the current
+  // round stack's topmost expansion (rulebook): move that expansion off the
+  // stack to extend the display (keeping any leftover tiles), then fill the
+  // new stack top with exactly 4 tiles from the bag (recycling the tower on
+  // shortage).
+  if (tookFromStack) {
+    const stackTop = next.displayExpansions.find((e) => e.onStack);
+    if (stackTop) stackTop.onStack = false;
     const stack = next.expansionStacks[next.round - 1];
-    if (stack && stack.length > 0 && next.bag.length > 0) {
+    if (stack && stack.length > 0) {
       const top = stack.shift()!;
-      next.displayExpansions.push({ ...top, faceUp: false });
-    }
-    if (next.bag.length > 0) {
-      const rng = makeRng(next.rngState);
-      const drawn: Hexagon[] = [];
-      for (let i = 0; i < FOUNTAIN_REFILL_TILES && next.bag.length > 0; i++) {
-        drawn.push(next.bag.pop()!);
+      const fill = drawTiles(next, FOUNTAIN_REFILL_TILES);
+      if (fill.length > 0) {
+        next.displayExpansions.push({
+          ...top,
+          faceUp: false,
+          onStack: true,
+          tiles: fill,
+        });
+      } else {
+        // No tiles at all: all empty expansions of the current round stack
+        // are placed face up in the display (rulebook shortage note).
+        next.displayExpansions.push({ ...top, faceUp: true, tiles: [] });
+        while (stack.length > 0) {
+          const e = stack.shift()!;
+          next.displayExpansions.push({ ...e, faceUp: true, tiles: [] });
+        }
       }
-      next.displayTiles.push(...drawn);
-      next.rngState = rng.state();
     }
   }
 
+  // Any display expansion that now holds 0 tiles flips face up (draftable).
+  for (const e of next.displayExpansions) {
+    if (!e.onStack && !e.faceUp && e.tiles.length === 0) e.faceUp = true;
+  }
+
   return next;
+}
+
+/**
+ * Spend validated payment items: tiles go to the tower, jokers return to the
+ * (unlimited) supply, held expansions return face down to the supply bottom.
+ * Mutates `next`.
+ */
+function spendPayment(
+  next: Mutable<EngineGameState>,
+  idx: number,
+  payment: readonly Payment[],
+): void {
+  const np = next.players[idx];
+  for (const pay of payment) {
+    if (pay.kind === 'joker') {
+      const i = np.storage.findIndex((s) => s.kind === 'joker');
+      np.storage.splice(i, 1);
+    } else if (pay.kind === 'expansion') {
+      np.expansionStore = np.expansionStore.filter(
+        (e) => e.id !== pay.expansionId,
+      );
+      next.expansionSupply += 1;
+    } else {
+      const i = np.storage.findIndex(
+        (s) => s.kind === 'tile' && sameHex(s.hex, pay.hex),
+      );
+      np.storage.splice(i, 1);
+      next.tower.push(pay.hex);
+    }
+  }
+}
+
+/**
+ * Draw up to `n` tiles from the bag; when the bag runs dry, recycle the tower
+ * back into the bag (reshuffled). May return fewer than `n` when both are
+ * exhausted (rulebook tile-shortage rule). Mutates `next`.
+ */
+function drawTiles(
+  next: Mutable<EngineGameState>,
+  n: number,
+): Hexagon[] {
+  const drawn: Hexagon[] = [];
+  const rng = makeRng(next.rngState);
+  for (let i = 0; i < n; i++) {
+    if (next.bag.length === 0 && next.tower.length > 0) {
+      next.bag = shuffle(next.tower, rng);
+      next.tower = [];
+    }
+    if (next.bag.length === 0) break;
+    drawn.push(next.bag.pop()!);
+  }
+  next.rngState = rng.state();
+  return drawn;
 }
 
 // ---------------------------------------------------------------------------
@@ -880,7 +1049,15 @@ export function validateExpansionPayment(
     );
   }
   const avail = p.storage.map((s) => clone(s));
+  const expansionHexes: Hexagon[] = [];
   for (const pay of payment) {
+    if (pay.kind === 'expansion') {
+      if (pay.expansionId === undefined) {
+        throw new IllegalMoveError('payment expansion missing id');
+      }
+      expansionHexes.push(takeHeldExpansionHex(p, pay.expansionId, payment));
+      continue;
+    }
     const i = avail.findIndex((s) =>
       pay.kind === 'joker'
         ? s.kind === 'joker'
@@ -898,6 +1075,7 @@ export function validateExpansionPayment(
     ...payment
       .filter((x): x is Extract<Payment, { kind: 'tile' }> => x.kind === 'tile')
       .map((x) => x.hex),
+    ...expansionHexes,
   ];
   const keys = realHexes.map(hexKey);
   if (new Set(keys).size !== keys.length) {
@@ -969,6 +1147,11 @@ function applyPlaceExpansion(
         'printed hexagon must share pattern or color with an adjacent hexagon',
       );
     }
+    if (wouldGroupContainDuplicates(p.placed, held.hex, printedAt)) {
+      throw new IllegalMoveError(
+        'printed hexagon would create a group containing two identical hexagons',
+      );
+    }
   }
 
   const next = clone(state);
@@ -976,14 +1159,16 @@ function applyPlaceExpansion(
 
   // Pay (face-up only).
   if (!held.faceDown && held.hex) {
-    for (const pay of action.payment ?? []) {
-      const i = np.storage.findIndex((s) =>
-        pay.kind === 'joker'
-          ? s.kind === 'joker'
-          : s.kind === 'tile' && sameHex(s.hex, pay.hex),
+    if (
+      (action.payment ?? []).some(
+        (x) => x.kind === 'expansion' && x.expansionId === held.id,
+      )
+    ) {
+      throw new IllegalMoveError(
+        'cannot discard the expansion being placed as its own payment',
       );
-      np.storage.splice(i, 1);
     }
+    spendPayment(next, idx, action.payment ?? []);
   }
 
   // Attach the new spaces (feature cell marked) and the printed hexagon.
@@ -1051,16 +1236,13 @@ function applyPlace(
   const next = clone(state);
   const np = next.players[idx];
 
-  // Consume the placed tile + payment items from storage.
-  const removeOne = (pred: (s: StorageItem) => boolean): void => {
-    const i = np.storage.findIndex(pred);
-    np.storage.splice(i, 1);
-  };
-  removeOne((s) => s.kind === 'tile' && sameHex(s.hex, action.hex));
-  for (const pay of action.payment) {
-    if (pay.kind === 'joker') removeOne((s) => s.kind === 'joker');
-    else removeOne((s) => s.kind === 'tile' && sameHex(s.hex, pay.hex));
-  }
+  // Consume the placed tile (it goes onto the garden, not the tower) and the
+  // payment items (tiles -> tower, jokers -> supply, expansions -> supply).
+  const i0 = np.storage.findIndex(
+    (s) => s.kind === 'tile' && sameHex(s.hex, action.hex),
+  );
+  np.storage.splice(i0, 1);
+  spendPayment(next, idx, action.payment);
 
   // Place it.
   np.placed.push({ at: action.at, hex: action.hex });
@@ -1098,7 +1280,23 @@ function applyPass(
         );
       }
       np.storage.splice(i, 1);
+      next.tower.push(h);
       np.score = clampScore(np.score - PATTERN_VALUE[h.pattern]);
+    }
+  }
+  // Optional cleanup: discard held garden expansions for MINUS points
+  // (minus the printed hexagon's value; piece returns face down to supply).
+  if (action.discardExpansionIds && action.discardExpansionIds.length > 0) {
+    for (const id of action.discardExpansionIds) {
+      const held = np.expansionStore.find((e) => e.id === id);
+      if (!held) {
+        throw new IllegalMoveError(`cannot discard expansion ${id}: not held`);
+      }
+      np.expansionStore = np.expansionStore.filter((e) => e.id !== id);
+      next.expansionSupply += 1;
+      if (held.hex) {
+        np.score = clampScore(np.score - PATTERN_VALUE[held.hex.pattern]);
+      }
     }
   }
 
@@ -1206,20 +1404,43 @@ export function advanceRound(state: EngineGameState): EngineGameState {
   next.activePlayerIndex = next.firstPlayerIndex;
   for (const p of next.players) p.passed = false;
 
-  // New round: the next round's stack top comes out face down, covered by
-  // 4 fresh tiles drawn from the bag.
+  // Phase 3 cleanup (rulebook): discard all remaining display tiles into the
+  // tower; return all remaining display expansions face down to the supply.
+  for (const e of next.displayExpansions) next.tower.push(...e.tiles);
+  next.tower.push(...next.displayTiles);
+  next.displayTiles = [];
+  next.expansionSupply += next.displayExpansions.length;
+  next.displayExpansions = [];
+  // Any unrevealed leftovers of the finished round's stack also go to supply
+  // (rulebook silent; the next round uses a fresh stack).
+  const prevStack = next.expansionStacks[next.round - 2];
+  if (prevStack && prevStack.length > 0) {
+    next.expansionSupply += prevStack.length;
+    next.expansionStacks[next.round - 2] = [];
+  }
+
+  // New round: the next round's stack top comes out face down (on the stack),
+  // covered by exactly 4 fresh tiles (tower recycled into bag on shortage).
   const stack = next.expansionStacks[next.round - 1];
   if (stack && stack.length > 0) {
     const top = stack.shift()!;
-    next.displayExpansions.push({ ...top, faceUp: false });
+    const fill = drawTiles(next, FOUNTAIN_REFILL_TILES);
+    if (fill.length > 0) {
+      next.displayExpansions.push({
+        ...top,
+        faceUp: false,
+        onStack: true,
+        tiles: fill,
+      });
+    } else {
+      // Total tile shortage: stack expansions go face up into the display.
+      next.displayExpansions.push({ ...top, faceUp: true, tiles: [] });
+      while (stack.length > 0) {
+        const e = stack.shift()!;
+        next.displayExpansions.push({ ...e, faceUp: true, tiles: [] });
+      }
+    }
   }
-  const rng = makeRng(next.rngState);
-  const drawn: Hexagon[] = [];
-  for (let i = 0; i < FOUNTAIN_REFILL_TILES && next.bag.length > 0; i++) {
-    drawn.push(next.bag.pop()!);
-  }
-  next.displayTiles.push(...drawn);
-  next.rngState = rng.state();
   return next;
 }
 
@@ -1271,10 +1492,14 @@ export function scoreFinalForPlayer(
 ): number {
   let total = 0;
 
-  // 1) Empty-storage scoring.
+  // 1) Empty-storage scoring: +1 per joker; minus pattern value per leftover
+  //    tile AND per leftover held garden expansion (its printed hexagon).
   for (const s of p.storage) {
     if (s.kind === 'joker') total += 1;
     else total -= PATTERN_VALUE[s.hex.pattern];
+  }
+  for (const e of p.expansionStore) {
+    if (e.hex) total -= PATTERN_VALUE[e.hex.pattern];
   }
 
   // 2) Group evaluation: 6 colors then 6 patterns.
@@ -1289,7 +1514,7 @@ export function scoreFinalForPlayer(
           0,
         );
       }
-      if (group.length === 6) total += COMPLETE_SET_BONUS;
+      if (group.length >= 6) total += COMPLETE_SET_BONUS;
     }
   };
   for (const color of COLORS) evaluate(color, 'color');

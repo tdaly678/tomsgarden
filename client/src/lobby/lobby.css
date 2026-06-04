@@ -277,6 +277,34 @@
   background: var(--tg-color-fern-soft);
   color: var(--tg-color-fern-deep);
 }
+.tg-badge-bot {
+  background: var(--tg-color-marigold-soft);
+  color: var(--tg-text-primary);
+}
+.tg-addbot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tg-space-1);
+  margin-left: auto;
+}
+.tg-addbot-label {
+  font-size: var(--tg-text-xs);
+  color: var(--tg-text-muted);
+  margin-right: var(--tg-space-1);
+}
+.tg-addbot-btn {
+  font: inherit;
+  font-size: var(--tg-text-xs);
+  background: transparent;
+  border: 1px solid var(--tg-color-fern-deep);
+  color: var(--tg-color-fern-deep);
+  border-radius: var(--tg-radius-sm);
+  padding: 2px var(--tg-space-2);
+  cursor: pointer;
+}
+.tg-addbot-btn:hover {
+  background: var(--tg-color-fern-soft);
+}
 .tg-badge-wait {
   background: var(--tg-neutral-100);
   color: var(--tg-text-muted);

@@ -6,7 +6,7 @@
  * compile time), so we can instantiate the server class directly against a
  * lightweight in-memory mock of `Party.Room` / `Party.Connection`.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ServerMessage, ClientMessage } from '@tomsgarden/shared';
 import TomsgardenServer from './server';
 
@@ -75,8 +75,17 @@ class MockRoom {
   getConnections<T = unknown>(): Iterable<{ state: T | null }> {
     return [...this.conns] as unknown as Iterable<{ state: T | null }>;
   }
-  broadcast(_raw: string): void {
-    /* no-op */
+  broadcasts: ServerMessage[] = [];
+  broadcast(raw: string): void {
+    this.broadcasts.push(JSON.parse(raw) as ServerMessage);
+  }
+  lastRoster() {
+    const r = this.broadcasts.filter((m) => m.type === 'Roster');
+    return r.length ? (r[r.length - 1] as Extract<ServerMessage, { type: 'Roster' }>) : null;
+  }
+  lastState() {
+    const r = this.broadcasts.filter((m) => m.type === 'StateUpdate');
+    return r.length ? (r[r.length - 1] as Extract<ServerMessage, { type: 'StateUpdate' }>) : null;
   }
 }
 
@@ -235,5 +244,192 @@ describe('lobby input validation', () => {
     await send(server, conn, { type: 'Join', playerName: 'Alice', asHost: true, maxPlayers: 4, setPassword: 'secret' });
     expect(conn.lastError()).toBeNull();
     expect(conn.lastAck()?.isHost).toBe(true);
+  });
+});
+
+// --- Bot seats & bot turn driving -------------------------------------------
+
+describe('bot seats (AddBot / RemoveBot)', () => {
+  let server: TomsgardenServer;
+  let room: MockRoom;
+  let host: MockConnection;
+
+  beforeEach(async () => {
+    ({ server, room } = makeServer());
+    host = new MockConnection('host');
+    room.register(host);
+    await send(server, host, { type: 'Join', playerName: 'Alice', asHost: true });
+  });
+
+  it('host can add a bot; it appears in the roster as a ready, connected bot', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    const roster = room.lastRoster()!;
+    expect(roster.seats).toHaveLength(2);
+    const bot = roster.seats.find((s) => s.isBot)!;
+    expect(bot).toBeTruthy();
+    expect(bot.difficulty).toBe('easy');
+    expect(bot.ready).toBe(true);
+    expect(bot.connected).toBe(true);
+  });
+
+  it('non-host cannot add or remove a bot', async () => {
+    const guest = new MockConnection('guest');
+    room.register(guest);
+    await send(server, guest, { type: 'Join', playerName: 'Bob' });
+    await send(server, guest, { type: 'AddBot', difficulty: 'hard' });
+    expect(guest.lastError()?.code).toBe('NOT_HOST');
+
+    await send(server, host, { type: 'AddBot', difficulty: 'hard' });
+    const bot = room.lastRoster()!.seats.find((s) => s.isBot)!;
+    await send(server, guest, { type: 'RemoveBot', playerId: bot.playerId });
+    expect(guest.lastError()?.code).toBe('NOT_HOST');
+    expect(room.lastRoster()!.seats.some((s) => s.isBot)).toBe(true);
+  });
+
+  it('rejects an invalid difficulty', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'impossible' } as never);
+    expect(host.lastError()?.code).toBe('INVALID_INPUT');
+  });
+
+  it('rejects adding a bot when the room is full', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    expect(host.lastError()?.code).toBe('ROOM_FULL');
+    expect(room.lastRoster()!.seats).toHaveLength(4);
+  });
+
+  it('host can remove a bot; RemoveBot refuses non-bot targets', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'medium' });
+    const bot = room.lastRoster()!.seats.find((s) => s.isBot)!;
+    await send(server, host, { type: 'RemoveBot', playerId: bot.playerId });
+    expect(room.lastRoster()!.seats.some((s) => s.isBot)).toBe(false);
+
+    const hostId = host.lastAck()!.playerId;
+    await send(server, host, { type: 'RemoveBot', playerId: hostId });
+    expect(host.lastError()?.code).toBe('UNKNOWN_PLAYER');
+  });
+});
+
+describe('bot turn driving', () => {
+  let server: TomsgardenServer;
+  let room: MockRoom;
+  let host: MockConnection;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    ({ server, room } = makeServer());
+    host = new MockConnection('host');
+    room.register(host);
+    await send(server, host, { type: 'Join', playerName: 'Alice', asHost: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('1 human + 1 bot is startable (bot counts toward the minimum)', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'StartGame' });
+    expect(host.lastError()).toBeNull();
+    const state = room.lastState()!.state;
+    expect(state.phase).toBe('drafting');
+    expect(state.players).toHaveLength(2);
+  });
+
+  it('chained bot turns drive a full bots-only round trip to game completion', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'AddBot', difficulty: 'medium' });
+    await send(server, host, { type: 'AddBot', difficulty: 'hard' });
+    // Host never acts after starting; but the host IS player 0 (active first).
+    await send(server, host, { type: 'StartGame' });
+    let state = room.lastState()!.state;
+    expect(state.phase).toBe('drafting');
+
+    // Host immediately passes every time it becomes active; bots chain via
+    // timers in between. Drive timers until the game finishes.
+    const hostId = host.lastAck()!.playerId;
+    for (let i = 0; i < 5000; i++) {
+      state = room.lastState()!.state;
+      if (state.phase === 'finished') break;
+      const idx = state.activePlayerIndex;
+      const activeId = idx === null ? null : state.players[idx]?.id;
+      if (activeId === hostId) {
+        await send(server, host, {
+          type: 'ActionMsg',
+          action: { type: 'Pass', playerId: hostId },
+        });
+      } else {
+        await vi.advanceTimersByTimeAsync(1600);
+      }
+    }
+    state = room.lastState()!.state;
+    expect(state.phase).toBe('finished');
+    expect(state.winnerIds.length).toBeGreaterThan(0);
+  });
+
+  it('a stale bot timer never double-fires or acts out of turn', async () => {
+    await send(server, host, { type: 'AddBot', difficulty: 'easy' });
+    await send(server, host, { type: 'StartGame' });
+    const before = room.lastState()!.state;
+    // First bot to act is the host (player 0). Host passes; bot becomes active
+    // and a timer is armed. Advance time so the bot acts exactly once.
+    const hostId = host.lastAck()!.playerId;
+    await send(server, host, {
+      type: 'ActionMsg',
+      action: { type: 'Pass', playerId: hostId },
+    });
+    const afterPass = room.lastState()!.state;
+    expect(afterPass).not.toEqual(before);
+    const broadcastCountBefore = room.broadcasts.length;
+    await vi.advanceTimersByTimeAsync(1600);
+    const afterBot = room.lastState()!.state;
+    const broadcastsForBotMove = room.broadcasts.length - broadcastCountBefore;
+    // The bot acted exactly once: state changed and was broadcast.
+    expect(broadcastsForBotMove).toBeGreaterThan(0);
+    expect(afterBot).not.toEqual(afterPass);
+    // After the host has passed, the bot is the only mover. Once the bot also
+    // passes, the server scores + advances the round in the same call, so the
+    // round number strictly increases (or the game finishes) — and afterwards
+    // a stale/duplicate timer firing again must produce NO further state
+    // change while it is not the bot's armed turn.
+    // Drive the bot until it has finished its run of turns for this round.
+    for (let i = 0; i < 200; i++) {
+      const s = room.lastState()!.state;
+      if (s.phase === 'finished' || s.round > afterBot.round) break;
+      const idx = s.activePlayerIndex;
+      const activeId = idx === null ? null : s.players[idx]?.id;
+      if (activeId === hostId) {
+        await send(server, host, {
+          type: 'ActionMsg',
+          action: { type: 'Pass', playerId: hostId },
+        });
+      } else {
+        await vi.advanceTimersByTimeAsync(1600);
+      }
+    }
+    let settled = room.lastState()!.state;
+    expect(settled.phase === 'finished' || settled.round > afterBot.round).toBe(
+      true,
+    );
+    // If the new round starts on the bot, let any armed timer fire its one
+    // legitimate move(s) until it is the host's turn or the game ends, so the
+    // no-op assertion below targets a genuinely stale timer.
+    for (let i = 0; i < 200; i++) {
+      const s = room.lastState()!.state;
+      if (s.phase === 'finished') break;
+      const idx = s.activePlayerIndex;
+      if (idx !== null && s.players[idx]?.id === hostId) break;
+      await vi.advanceTimersByTimeAsync(1600);
+    }
+    settled = room.lastState()!.state;
+    // Stale-timer guard: it is now the HOST's turn (or the game is over).
+    // Advancing time far past any residual armed timer must not change state
+    // or emit any broadcast — a stale timer must no-op.
+    const settledBroadcasts = room.broadcasts.length;
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(room.broadcasts.length).toBe(settledBroadcasts);
+    expect(room.lastState()!.state).toEqual(settled);
   });
 });

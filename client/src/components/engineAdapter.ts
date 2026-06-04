@@ -213,7 +213,7 @@ export function toBoardState(engine: EngineGameState): BoardGameState {
 /**
  * Translate a board-level intent into a canonical engine Action.
  *
- *  - DraftTiles(color)  -> Acquire by color
+ *  - DraftTiles(select) -> Acquire by color OR by pattern
  *  - PlaceTile(tileId, at) -> PlaceTile(hex, at, payment:[]) (payment UI TBD)
  *  - DiscardToFloor / EndTurn -> Pass (optionally discarding the hex)
  *
@@ -241,12 +241,23 @@ export function decodePayment(ids: readonly string[] | undefined): EnginePayment
 export function toEngineAction(action: BoardAction): EngineAction | null {
   switch (action.type) {
     case 'DraftTiles': {
-      const color = colorToEngine.get(action.color);
-      if (!color) return null;
+      if (action.select.by === 'color') {
+        const color = colorToEngine.get(action.select.color);
+        if (!color) return null;
+        return {
+          type: 'Acquire',
+          playerId: action.playerId,
+          select: { by: 'color', color },
+        };
+      }
+      const pattern = patternToEngine.get(
+        action.select.pattern as BoardPatternId,
+      );
+      if (!pattern) return null;
       return {
         type: 'Acquire',
         playerId: action.playerId,
-        select: { by: 'color', color },
+        select: { by: 'pattern', pattern },
       };
     }
     case 'PlaceTile': {

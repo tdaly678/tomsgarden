@@ -3,6 +3,11 @@ import type React from 'react';
 import type { RosterMessage } from '@tomsgarden/shared';
 import { makeShareUrl, copyToClipboard } from './links';
 
+/** Capitalize a difficulty label (easy -> Easy). */
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export interface LobbyScreenProps {
   roster: RosterMessage;
   /** The local player's id (from JoinAck). */
@@ -14,6 +19,10 @@ export interface LobbyScreenProps {
   onSetReady: (ready: boolean) => void;
   onConfigure: (config: { maxPlayers?: number; password?: string }) => void;
   onKick: (playerId: string) => void;
+  /** Host-only: add an AI player with the given difficulty. */
+  onAddBot?: (difficulty: 'easy' | 'medium' | 'hard') => void;
+  /** Host-only: remove an AI player. */
+  onRemoveBot?: (playerId: string) => void;
   onStart: () => void;
   onLeave: () => void;
   /** Last lobby error message (e.g. NOT_READY / NOT_ENOUGH_PLAYERS). */
@@ -34,6 +43,8 @@ export function LobbyScreen({
   onSetReady,
   onConfigure,
   onKick,
+  onAddBot,
+  onRemoveBot,
   onStart,
   onLeave,
   error,
@@ -71,15 +82,29 @@ export function LobbyScreen({
             {seat.name}
             {isMe && ' (you)'}
             {seat.isHost && <span className="tg-badge tg-badge-host">Host</span>}
+            {seat.isBot && (
+              <span className="tg-badge tg-badge-bot" title="AI player">
+                🤖 {seat.difficulty ? cap(seat.difficulty) : 'AI'}
+              </span>
+            )}
           </span>
-          {seat.isHost ? (
+          {seat.isHost || seat.isBot ? (
             <span className="tg-badge tg-badge-host">Ready</span>
           ) : seat.ready ? (
             <span className="tg-badge tg-badge-ready">Ready</span>
           ) : (
             <span className="tg-badge tg-badge-wait">Not ready</span>
           )}
-          {isHost && !seat.isHost && (
+          {isHost && seat.isBot && (
+            <button
+              className="tg-seat-kick"
+              onClick={() => onRemoveBot?.(seat.playerId)}
+              title="Remove AI player"
+            >
+              Remove
+            </button>
+          )}
+          {isHost && !seat.isHost && !seat.isBot && (
             <button
               className="tg-seat-kick"
               onClick={() => onKick(seat.playerId)}
@@ -95,6 +120,21 @@ export function LobbyScreen({
         <li key={`empty-${i}`} className="tg-seat tg-seat-empty">
           <span className="tg-seat-dot" />
           <span className="tg-seat-name">Open seat…</span>
+          {isHost && onAddBot && (
+            <span className="tg-addbot">
+              <span className="tg-addbot-label">Add AI:</span>
+              {(['easy', 'medium', 'hard'] as const).map((d) => (
+                <button
+                  key={d}
+                  className="tg-addbot-btn"
+                  onClick={() => onAddBot(d)}
+                  title={`Add a ${cap(d)} AI player`}
+                >
+                  {cap(d)}
+                </button>
+              ))}
+            </span>
+          )}
         </li>,
       );
     }

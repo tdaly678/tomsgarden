@@ -8,7 +8,8 @@
  * feeds fresh `state` back in via props.
  *
  * Local interaction model:
- *   1. Click a color-group in the central display -> emits DraftTiles.
+ *   1. Click a tile in the central display, then choose "all <color>" or
+ *      "all <pattern>" in the chooser -> emits DraftTiles with that selector.
  *   2. Click/drag a tile in your Shed -> selects it (pendingTile); legal target
  *      spaces light up on your Garden Plot.
  *   3. Click/drop on a legal space -> emits PlaceTile; illegal click flashes.
@@ -23,8 +24,8 @@ import type {
   HeldBed,
   PlayerState,
   Tile as TileT,
-  TileColor,
 } from './boardModel';
+import type { DraftSelector } from './boardModel';
 import { CentralDisplay } from './CentralDisplay';
 import { SeasonDial } from './SeasonDial';
 import { HarvestTrack } from './HarvestTrack';
@@ -97,7 +98,7 @@ export function GameBoard({
   const [invalidKey, setInvalidKey] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<{
     source: string;
-    color: TileColor;
+    select: DraftSelector;
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -144,19 +145,21 @@ export function GameBoard({
     window.setTimeout(() => setToast(null), 1800);
   }
 
-  function handleDraft(source: string, color: TileColor): void {
+  function handleDraft(source: string, select: DraftSelector): void {
     if (!isLocalTurn) {
       flash('Not your turn');
       return;
     }
-    setSelectedSource({ source, color });
+    setSelectedSource({ source, select });
     onAction?.({
       type: 'DraftTiles',
       playerId: localId,
       source,
-      color,
+      select,
     });
-    flash(`Acquired ${color} from ${source.toUpperCase()}`);
+    const what =
+      select.by === 'color' ? `all ${select.color}` : `all ${select.pattern}`;
+    flash(`Acquired ${what} from ${source.toUpperCase()}`);
   }
 
   function handleSelectTile(tile: TileT): void {

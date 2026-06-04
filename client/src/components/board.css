@@ -211,6 +211,52 @@
   cursor: default;
   opacity: 0.7;
 }
+/* Individual draftable tile in a source (click = open color/pattern chooser) */
+.tg-draft-tile {
+  display: flex;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+.tg-draft-tile:hover:not(:disabled) {
+  border-color: var(--tg-legal);
+}
+.tg-draft-tile.is-focused {
+  border-color: var(--tg-accent);
+  box-shadow: 0 0 8px var(--tg-accent);
+}
+.tg-draft-tile.is-taken {
+  border-color: var(--tg-legal);
+  box-shadow: 0 0 8px var(--tg-legal);
+}
+.tg-draft-tile.is-dup {
+  opacity: 0.45; /* matches the selection but is an identical duplicate */
+}
+.tg-draft-tile:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+/* Two-option acquire chooser (all <color> vs all <pattern>) */
+.tg-draft-chooser {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tg-draft-option {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+}
+.tg-draft-cancel {
+  font-size: 0.72rem;
+  padding: 3px 7px;
+  color: var(--tg-ink-dim);
+}
+
 .tg-empty-note {
   font-size: 0.7rem;
   color: var(--tg-ink-dim);

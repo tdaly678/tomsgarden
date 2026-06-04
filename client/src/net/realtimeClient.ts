@@ -149,6 +149,16 @@ export class RealtimeClient {
     this.send({ type: 'KickPlayer', playerId });
   }
 
+  /** Host-only: add an AI player to an empty seat (lobby only). */
+  addBot(difficulty: 'easy' | 'medium' | 'hard'): void {
+    this.send({ type: 'AddBot', difficulty });
+  }
+
+  /** Host-only: remove an AI player (lobby only). */
+  removeBot(playerId: string): void {
+    this.send({ type: 'RemoveBot', playerId });
+  }
+
   private send(msg: ClientMessage): void {
     this.socket.send(JSON.stringify(msg));
   }
