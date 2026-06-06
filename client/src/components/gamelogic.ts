@@ -284,3 +284,99 @@ export function acquiredTiles(
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Whole-display acquire preview (client mirror of engine acquirableHexagons)
+// ---------------------------------------------------------------------------
+
+/** Selector shape the preview accepts (color names / pattern ids are board-side). */
+export type AcquireSelect =
+  | { readonly by: 'color'; readonly color: string }
+  | { readonly by: 'pattern'; readonly pattern: string };
+
+/** A draftable source group: the Nursery center pool or one flower bed. */
+export interface AcquireSource {
+  /** 'center' for the loose Nursery pool; otherwise the flower-bed id. */
+  readonly id: string;
+  readonly tiles: readonly Tile[];
+}
+
+/** A face-up flower bed in the display (acquirable when its printed tile matches). */
+export interface FaceUpBedView {
+  readonly id: string;
+  readonly printedTile?: Tile;
+  readonly faceUp: boolean;
+}
+
+export interface AcquirePreview {
+  /** Tile ids that would actually be taken (one copy per identical hexagon). */
+  readonly takenIds: Set<string>;
+  /** Tile ids matching the selector but skipped as identical duplicates. */
+  readonly dupIds: Set<string>;
+  /** Face-up flower-bed ids whose printed hexagon matches (also acquired). */
+  readonly bedIds: Set<string>;
+  /** The taken tiles, in engine pick order. */
+  readonly taken: Tile[];
+}
+
+/**
+ * Compute exactly which display pieces an Acquire would take, ACROSS the
+ * entire display (Nursery pool + every flower bed), mirroring the engine's
+ * `acquirableHexagons` in shared/engine/core.ts:
+ *
+ *  - Every matching tile from the loose pool (weight 0) and every flower bed
+ *    (weight = that bed's tile count) is a candidate.
+ *  - Candidates are stable-sorted by weight ascending (loose pool first, then
+ *    emptier beds first — the engine's canonical duplicate choice).
+ *  - Of identical hexagons (same color AND pattern), only the FIRST candidate
+ *    is taken; the other copies stay in the display.
+ *  - Matching FACE-UP flower beds (printed hexagon matches the selector) are
+ *    also acquired, into expansion storage.
+ *
+ * Keep this in lockstep with the engine — there is a unit test pinning the
+ * two against each other (gamelogic.test.ts).
+ */
+export function acquirePreview(
+  center: readonly Tile[],
+  factories: readonly AcquireSource[],
+  beds: readonly FaceUpBedView[],
+  select: AcquireSelect,
+): AcquirePreview {
+  const matches = (t: Tile): boolean =>
+    select.by === 'color'
+      ? t.color === select.color
+      : patternOf(t) === select.pattern;
+
+  const candidates: { tile: Tile; weight: number }[] = [];
+  for (const t of center) if (matches(t)) candidates.push({ tile: t, weight: 0 });
+  for (const f of factories) {
+    for (const t of f.tiles) {
+      if (matches(t)) candidates.push({ tile: t, weight: f.tiles.length });
+    }
+  }
+  // Array.prototype.sort is stable: equal weights keep display order, exactly
+  // like the engine's stable sort over its source list.
+  candidates.sort((a, b) => a.weight - b.weight);
+
+  const seen = new Set<string>();
+  const takenIds = new Set<string>();
+  const dupIds = new Set<string>();
+  const taken: Tile[] = [];
+  for (const c of candidates) {
+    const key = `${c.tile.color}:${patternOf(c.tile)}`;
+    if (seen.has(key)) {
+      dupIds.add(c.tile.id);
+      continue;
+    }
+    seen.add(key);
+    takenIds.add(c.tile.id);
+    taken.push(c.tile);
+  }
+
+  const bedIds = new Set<string>();
+  for (const b of beds) {
+    if (b.faceUp && b.printedTile && matches(b.printedTile)) bedIds.add(b.id);
+  }
+
+  return { takenIds, dupIds, bedIds, taken };
+}

@@ -41,6 +41,7 @@ import {
   type HexSpace,
 } from './hexgrid';
 import {
+  acquirePreview,
   canAffordBed,
   canAffordTile,
   isValidPayment,
@@ -96,10 +97,8 @@ export function GameBoard({
     null,
   );
   const [invalidKey, setInvalidKey] = useState<string | null>(null);
-  const [selectedSource, setSelectedSource] = useState<{
-    source: string;
-    select: DraftSelector;
-  } | null>(null);
+  // Pending acquire selection (two-step: select grouping, then confirm Take).
+  const [pendingDraft, setPendingDraft] = useState<DraftSelector | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   // Mirror engine affordability: ids of hand tiles the player CANNOT place
@@ -145,21 +144,33 @@ export function GameBoard({
     window.setTimeout(() => setToast(null), 1800);
   }
 
-  function handleDraft(source: string, select: DraftSelector): void {
+  /** Step 1 — set (or clear) the persistent acquire selection. */
+  function handleDraftSelect(select: DraftSelector | null): void {
+    if (select && !isLocalTurn) {
+      flash('Not your turn');
+      return;
+    }
+    setPendingDraft(select);
+  }
+
+  /** Step 2 — confirm: only now is the draft action emitted. */
+  function handleDraftConfirm(): void {
+    if (!pendingDraft) return;
     if (!isLocalTurn) {
       flash('Not your turn');
       return;
     }
-    setSelectedSource({ source, select });
+    const select = pendingDraft;
+    setPendingDraft(null);
     onAction?.({
       type: 'DraftTiles',
       playerId: localId,
-      source,
+      source: 'display',
       select,
     });
     const what =
       select.by === 'color' ? `all ${select.color}` : `all ${select.pattern}`;
-    flash(`Acquired ${what} from ${source.toUpperCase()}`);
+    flash(`Acquired ${what} from the display`);
   }
 
   function handleSelectTile(tile: TileT): void {
@@ -396,8 +407,19 @@ export function GameBoard({
     setPendingBed(null);
     setPendingPayment(null);
     setBuyingBed(false);
-    setSelectedSource(null);
+    setPendingDraft(null);
   }
+
+  // Face-up beds included in the pending acquire selection (highlighted).
+  const pendingBedIds = useMemo(() => {
+    if (!pendingDraft) return new Set<string>();
+    return acquirePreview(
+      state.center,
+      state.factories,
+      state.displayBeds,
+      pendingDraft,
+    ).bedIds;
+  }, [pendingDraft, state.center, state.factories, state.displayBeds]);
 
   const activeName =
     state.activePlayerIndex !== null
@@ -440,10 +462,12 @@ export function GameBoard({
           <CentralDisplay
             factories={state.factories}
             center={state.center}
+            displayBeds={state.displayBeds}
             bagCount={state.bagCount}
             canDraft={isLocalTurn}
-            selectedSource={selectedSource}
-            onDraft={handleDraft}
+            pendingSelect={pendingDraft}
+            onSelect={handleDraftSelect}
+            onConfirm={handleDraftConfirm}
           />
 
           {/* Flower-bed display: face-up beds are draftable; face-down beds
@@ -454,10 +478,16 @@ export function GameBoard({
                 <button
                   key={b.id}
                   type="button"
-                  className="tg-btn tg-bed-chip"
+                  className={`tg-btn tg-bed-chip${
+                    pendingBedIds.has(b.id) ? ' is-taken' : ''
+                  }`}
                   disabled={!isLocalTurn}
                   onClick={() => handleAcquireBed(b.id, b.printedTile!.id)}
-                  title={`Acquire this ${b.spaces}-space ${LABELS.flowerBed.toLowerCase()}`}
+                  title={
+                    pendingBedIds.has(b.id)
+                      ? `Included in your selection — will be acquired on Take`
+                      : `Acquire this ${b.spaces}-space ${LABELS.flowerBed.toLowerCase()}`
+                  }
                 >
                   ⬡ {b.spaces}-space {LABELS.flowerBed}
                 </button>

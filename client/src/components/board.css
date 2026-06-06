@@ -232,7 +232,10 @@
   box-shadow: 0 0 8px var(--tg-legal);
 }
 .tg-draft-tile.is-dup {
-  opacity: 0.45; /* matches the selection but is an identical duplicate */
+  /* matches the selection but is an identical duplicate — stays in display */
+  opacity: 0.45;
+  border-style: dashed;
+  border-color: var(--tg-ink-dim);
 }
 .tg-draft-tile:disabled {
   cursor: default;
@@ -255,6 +258,44 @@
   font-size: 0.72rem;
   padding: 3px 7px;
   color: var(--tg-ink-dim);
+}
+
+/* Persistent selection confirm bar ("Take N tiles" / Cancel) */
+.tg-draft-confirm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--tg-accent);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+}
+.tg-draft-confirm-msg {
+  font-size: 0.74rem;
+  color: var(--tg-ink-dim);
+}
+.tg-draft-confirm-msg b {
+  color: var(--tg-ink);
+}
+.tg-draft-take {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-color: var(--tg-legal);
+  box-shadow: 0 0 8px var(--tg-legal);
+}
+.tg-draft-take:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+/* A face-up flower bed included in the pending acquire selection */
+.tg-bed-chip.is-taken {
+  border-color: var(--tg-legal);
+  box-shadow: 0 0 8px var(--tg-legal);
 }
 
 .tg-empty-note {
