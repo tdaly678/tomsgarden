@@ -14,9 +14,13 @@ import type {
   PlayerEngineState,
 } from '@tomsgarden/shared/engine';
 import { DEFAULT_CONFIG } from '@tomsgarden/shared/engine';
-import { acquirePreview, patternOf } from './gamelogic';
-import { decodeHexFromTileId, toBoardState } from './engineAdapter';
-import type { DraftSelector } from './boardModel';
+import { acquirePreview, groupKeyOf, patternOf } from './gamelogic';
+import {
+  decodeHexFromTileId,
+  toBoardState,
+  toEngineAction,
+} from './engineAdapter';
+import type { DraftSelector, DraftCopyChoice } from './boardModel';
 
 const hx = (
   pattern: Hexagon['pattern'],
@@ -300,5 +304,124 @@ describe('acquirePreview mirrors the engine across the whole display', () => {
     const tile = board.center[0];
     expect(patternOf(tile)).toBe('ladybug'); // pattern3 -> ladybug
     expect(decodeHexFromTileId(tile.id)).toEqual(hx('pattern3', 'color4'));
+  });
+
+  it('EVERY matching tile across multiple beds + center is taken OR dup (no un-highlighted match)', () => {
+    // Reproduces "all rose not fully highlighting": rose=color4(red), empty
+    // center, rose tiles scattered across 3 beds with duplicates.
+    const state = makeState({
+      displayTiles: [],
+      displayExpansions: [
+        {
+          id: 'b1', hex: hx('pattern1', 'color1'), spaces: 7, feature: 'pavilion',
+          faceUp: false, onStack: true,
+          tiles: [hx('pattern1', 'color4'), hx('pattern2', 'color4'), hx('pattern3', 'color2')],
+        },
+        {
+          id: 'b2', hex: hx('pattern2', 'color2'), spaces: 7, feature: 'pavilion',
+          faceUp: false,
+          tiles: [hx('pattern1', 'color4'), hx('pattern5', 'color4'), hx('pattern6', 'color1')],
+        },
+        {
+          id: 'b3', hex: hx('pattern3', 'color3'), spaces: 7, feature: 'pavilion',
+          faceUp: false,
+          tiles: [hx('pattern2', 'color4'), hx('pattern4', 'color4')],
+        },
+      ],
+    });
+    const board = toBoardState(state);
+    const preview = acquirePreview(board.center, board.factories, board.displayBeds, {
+      by: 'color', color: 'red',
+    });
+    const rendered = [...board.center, ...board.factories.flatMap((f) => f.tiles)];
+    const matching = rendered.filter((t) => t.color === 'red');
+    for (const t of matching) {
+      const covered = preview.takenIds.has(t.id) || preview.dupIds.has(t.id);
+      expect(covered).toBe(true);
+    }
+    // pattern1/color4 and pattern2/color4 are each duplicated -> 2 dup groups.
+    let dupGroups = 0;
+    for (const [, copies] of preview.groups) if (copies.length > 1) dupGroups += 1;
+    expect(dupGroups).toBe(2);
+  });
+});
+
+describe('player-chosen duplicate copy: preview override + adapter -> engine', () => {
+  // Two beds each holding pattern1/color1. Bed `one` (1 tile) flips when taken;
+  // bed `two` (2 tiles) does not.
+  const twoBeds = () =>
+    makeState({
+      displayExpansions: [
+        {
+          id: 'one', hex: hx('pattern5', 'color5'), spaces: 7, feature: 'pavilion',
+          faceUp: false, onStack: false, tiles: [hx('pattern1', 'color1')],
+        },
+        {
+          id: 'two', hex: hx('pattern6', 'color6'), spaces: 7, feature: 'pavilion',
+          faceUp: false, onStack: false,
+          tiles: [hx('pattern1', 'color1'), hx('pattern2', 'color2')],
+        },
+      ],
+    });
+
+  it('overriding the chosen copy moves the highlight to that copy', () => {
+    const board = toBoardState(twoBeds());
+    const sel: DraftSelector = { by: 'color', color: 'purple' }; // color1
+    const def = acquirePreview(board.center, board.factories, board.displayBeds, sel);
+    // canonical takes from the smaller bed `one`.
+    const oneTile = board.factories.find((f) => f.id === 'one')!.tiles[0];
+    const twoTile = board.factories
+      .find((f) => f.id === 'two')!
+      .tiles.find((t) => decodeHexFromTileId(t.id)!.color === 'color1')!;
+    expect(def.takenIds.has(oneTile.id)).toBe(true);
+    expect(def.dupIds.has(twoTile.id)).toBe(true);
+    // override: take the copy on bed `two`.
+    const chosen = new Map([[groupKeyOf(twoTile), twoTile.id]]);
+    const ov = acquirePreview(board.center, board.factories, board.displayBeds, sel, chosen);
+    expect(ov.takenIds.has(twoTile.id)).toBe(true);
+    expect(ov.dupIds.has(oneTile.id)).toBe(true);
+  });
+
+  it('adapter wires DraftTiles.choices into engine Acquire.choices and the engine honors it', () => {
+    const choice: DraftCopyChoice = {
+      color: 'purple', // color1
+      pattern: 'sapling', // pattern1
+      source: { kind: 'expansion', expansionId: 'two' },
+    };
+    const engineAction = toEngineAction({
+      type: 'DraftTiles',
+      playerId: 'p1',
+      source: 'display',
+      select: { by: 'color', color: 'purple' },
+      choices: [choice],
+    });
+    expect(engineAction).toMatchObject({
+      type: 'Acquire',
+      select: { by: 'color', color: 'color1' },
+      choices: [
+        { hex: { color: 'color1', pattern: 'pattern1' }, from: { kind: 'expansion', expansionId: 'two' } },
+      ],
+    });
+    // Applying it: bed `one` is left intact (NOT flipped); bed `two` loses color1.
+    const after = applyAction(twoBeds(), engineAction!);
+    const one = after.displayExpansions.find((e) => e.id === 'one')!;
+    const two = after.displayExpansions.find((e) => e.id === 'two')!;
+    expect(one.tiles).toEqual([hx('pattern1', 'color1')]);
+    expect(one.faceUp).toBe(false);
+    expect(two.tiles).toEqual([hx('pattern2', 'color2')]);
+  });
+
+  it('omitting choices keeps the canonical default (back-compat)', () => {
+    const engineAction = toEngineAction({
+      type: 'DraftTiles',
+      playerId: 'p1',
+      source: 'display',
+      select: { by: 'color', color: 'purple' },
+    });
+    expect(engineAction).not.toHaveProperty('choices');
+    const after = applyAction(twoBeds(), engineAction!);
+    const one = after.displayExpansions.find((e) => e.id === 'one')!;
+    expect(one.tiles).toEqual([]); // canonical emptied the small bed
+    expect(one.faceUp).toBe(true);
   });
 });

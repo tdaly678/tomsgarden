@@ -128,11 +128,35 @@ export type DraftSelector =
   | { readonly by: 'color'; readonly color: TileColor }
   | { readonly by: 'pattern'; readonly pattern: string };
 
+/**
+ * Which physical display location a chosen duplicate copy comes from. Mirrors
+ * the engine's `AcquireSource`: the loose center pool, or a specific flower bed.
+ */
+export type DraftCopySource =
+  | { readonly kind: 'loose' }
+  | { readonly kind: 'expansion'; readonly expansionId: string };
+
+/**
+ * For one duplicate group (same color AND pattern), which copy the player wants
+ * taken. `color`/`pattern` identify the group; `source` the chosen location.
+ */
+export interface DraftCopyChoice {
+  readonly color: TileColor;
+  readonly pattern: string;
+  readonly source: DraftCopySource;
+}
+
 export interface DraftTilesAction {
   readonly type: 'DraftTiles';
   readonly playerId: string;
   readonly source: string | 'center';
   readonly select: DraftSelector;
+  /**
+   * OPTIONAL player-chosen copies for duplicate groups. Omitted groups use the
+   * engine's canonical pick. Wired through engineAdapter into the engine's
+   * additive Acquire `choices`.
+   */
+  readonly choices?: readonly DraftCopyChoice[];
 }
 
 export interface PlaceTileAction {

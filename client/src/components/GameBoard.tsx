@@ -25,7 +25,7 @@ import type {
   PlayerState,
   Tile as TileT,
 } from './boardModel';
-import type { DraftSelector } from './boardModel';
+import type { DraftSelector, DraftCopyChoice } from './boardModel';
 import { CentralDisplay } from './CentralDisplay';
 import { SeasonDial } from './SeasonDial';
 import { HarvestTrack } from './HarvestTrack';
@@ -153,8 +153,12 @@ export function GameBoard({
     setPendingDraft(select);
   }
 
-  /** Step 2 — confirm: only now is the draft action emitted. */
-  function handleDraftConfirm(): void {
+  /**
+   * Step 2 — confirm: only now is the draft action emitted. `choices` carries
+   * the player's chosen physical copy for any duplicate group (defaults to the
+   * canonical pick inside CentralDisplay).
+   */
+  function handleDraftConfirm(choices?: readonly DraftCopyChoice[]): void {
     if (!pendingDraft) return;
     if (!isLocalTurn) {
       flash('Not your turn');
@@ -167,6 +171,7 @@ export function GameBoard({
       playerId: localId,
       source: 'display',
       select,
+      ...(choices && choices.length > 0 ? { choices } : {}),
     });
     const what =
       select.by === 'color' ? `all ${select.color}` : `all ${select.pattern}`;

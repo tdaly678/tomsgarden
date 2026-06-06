@@ -308,6 +308,13 @@ export interface FaceUpBedView {
   readonly faceUp: boolean;
 }
 
+/** One physical copy in a duplicate group, with the source it sits on. */
+export interface AcquireCopy {
+  readonly tile: Tile;
+  /** 'center' for the loose pool, otherwise the flower-bed (factory) id. */
+  readonly sourceId: string;
+}
+
 export interface AcquirePreview {
   /** Tile ids that would actually be taken (one copy per identical hexagon). */
   readonly takenIds: Set<string>;
@@ -317,6 +324,17 @@ export interface AcquirePreview {
   readonly bedIds: Set<string>;
   /** The taken tiles, in engine pick order. */
   readonly taken: Tile[];
+  /**
+   * Per duplicate-group (key = `color:pattern`), every matching copy in
+   * canonical order (the order the engine would consider them). Groups with
+   * >1 entry are player-choosable; the first entry is the canonical default.
+   */
+  readonly groups: Map<string, AcquireCopy[]>;
+}
+
+/** Group key for a duplicate group: full hexagon identity (color + pattern). */
+export function groupKeyOf(t: Tile): string {
+  return `${t.color}:${patternOf(t)}`;
 }
 
 /**
@@ -341,36 +359,63 @@ export function acquirePreview(
   factories: readonly AcquireSource[],
   beds: readonly FaceUpBedView[],
   select: AcquireSelect,
+  /**
+   * OPTIONAL per-group override: group key (`color:pattern`) -> the tile id the
+   * player chose to take from that group. When a group has no override (or the
+   * override id is not a current member), the canonical (first) copy is taken.
+   * Lets the UI re-light the highlight as the player picks a different copy.
+   */
+  chosen?: ReadonlyMap<string, string>,
 ): AcquirePreview {
   const matches = (t: Tile): boolean =>
     select.by === 'color'
       ? t.color === select.color
       : patternOf(t) === select.pattern;
 
-  const candidates: { tile: Tile; weight: number }[] = [];
-  for (const t of center) if (matches(t)) candidates.push({ tile: t, weight: 0 });
+  const candidates: { tile: Tile; weight: number; sourceId: string }[] = [];
+  for (const t of center) {
+    if (matches(t)) candidates.push({ tile: t, weight: 0, sourceId: 'center' });
+  }
   for (const f of factories) {
     for (const t of f.tiles) {
-      if (matches(t)) candidates.push({ tile: t, weight: f.tiles.length });
+      if (matches(t)) {
+        candidates.push({ tile: t, weight: f.tiles.length, sourceId: f.id });
+      }
     }
   }
   // Array.prototype.sort is stable: equal weights keep display order, exactly
   // like the engine's stable sort over its source list.
   candidates.sort((a, b) => a.weight - b.weight);
 
-  const seen = new Set<string>();
+  // Build groups in canonical order (first entry = canonical default).
+  const groups = new Map<string, AcquireCopy[]>();
+  for (const c of candidates) {
+    const key = `${c.tile.color}:${patternOf(c.tile)}`;
+    const arr = groups.get(key);
+    const copy: AcquireCopy = { tile: c.tile, sourceId: c.sourceId };
+    if (arr) arr.push(copy);
+    else groups.set(key, [copy]);
+  }
+
   const takenIds = new Set<string>();
   const dupIds = new Set<string>();
   const taken: Tile[] = [];
-  for (const c of candidates) {
-    const key = `${c.tile.color}:${patternOf(c.tile)}`;
-    if (seen.has(key)) {
-      dupIds.add(c.tile.id);
-      continue;
+  for (const [key, copies] of groups) {
+    // Honor the player's override when it names a current member of the group;
+    // otherwise fall back to the canonical (first) copy.
+    const overrideId = chosen?.get(key);
+    const override = overrideId
+      ? copies.find((c) => c.tile.id === overrideId)
+      : undefined;
+    const pick = override ?? copies[0];
+    for (const c of copies) {
+      if (c.tile.id === pick.tile.id) {
+        takenIds.add(c.tile.id);
+        taken.push(c.tile);
+      } else {
+        dupIds.add(c.tile.id);
+      }
     }
-    seen.add(key);
-    takenIds.add(c.tile.id);
-    taken.push(c.tile);
   }
 
   const bedIds = new Set<string>();
@@ -378,5 +423,5 @@ export function acquirePreview(
     if (b.faceUp && b.printedTile && matches(b.printedTile)) bedIds.add(b.id);
   }
 
-  return { takenIds, dupIds, bedIds, taken };
+  return { takenIds, dupIds, bedIds, taken, groups };
 }

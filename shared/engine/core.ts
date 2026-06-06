@@ -258,11 +258,28 @@ export function countRealTiles(p: PlayerEngineState): number {
   return p.storage.filter((s) => s.kind === 'tile').length;
 }
 
-/** Distinct hexagons available in display for a pattern/color selection. */
+/** Physical source of a taken duplicate copy (mirrors AcquireSource). */
+type CopySource =
+  | { kind: 'loose' }
+  | { kind: 'expansion'; expansionId: string };
+
+/**
+ * Distinct hexagons available in display for a pattern/color selection, each
+ * paired with the canonical SOURCE the copy is taken from. The `source` lets
+ * `applyAcquire` know which display location to empty by default, and lets a
+ * player choice override it per duplicate group.
+ *
+ * `groups` records, per taken hexagon, every display location that holds a
+ * matching copy — the full set of legal choices for that duplicate group.
+ */
 function acquirableHexagons(
   state: EngineGameState,
   select: AcquireAction['select'],
-): { tiles: Hexagon[]; expansions: DisplayExpansion[] } {
+): {
+  tiles: { hex: Hexagon; source: CopySource }[];
+  expansions: DisplayExpansion[];
+  groups: Map<string, CopySource[]>;
+} {
   const matchTile = (h: Hexagon): boolean =>
     select.by === 'pattern'
       ? h.pattern === select.pattern
@@ -273,23 +290,40 @@ function acquirableHexagons(
   // copies stay in the display). Canonical choice: prefer the copy on the
   // expansion holding the fewest tiles (empties expansions sooner, matching
   // the rulebook example's heuristic).
-  const sources: { hex: Hexagon; weight: number }[] = [];
+  const sources: { hex: Hexagon; weight: number; source: CopySource }[] = [];
   for (const t of state.displayTiles) {
-    if (matchTile(t)) sources.push({ hex: t, weight: 0 });
+    if (matchTile(t)) sources.push({ hex: t, weight: 0, source: { kind: 'loose' } });
   }
   for (const e of state.displayExpansions) {
     for (const t of e.tiles) {
-      if (matchTile(t)) sources.push({ hex: t, weight: e.tiles.length });
+      if (matchTile(t)) {
+        sources.push({
+          hex: t,
+          weight: e.tiles.length,
+          source: { kind: 'expansion', expansionId: e.id },
+        });
+      }
     }
   }
   sources.sort((a, b) => a.weight - b.weight);
+
+  // All legal source locations per duplicate group (preserving canonical order
+  // so the first entry is the canonical default for that group).
+  const groups = new Map<string, CopySource[]>();
+  for (const s of sources) {
+    const k = hexKey(s.hex);
+    const arr = groups.get(k);
+    if (arr) arr.push(s.source);
+    else groups.set(k, [s.source]);
+  }
+
   const seen = new Set<string>();
-  const tiles: Hexagon[] = [];
+  const tiles: { hex: Hexagon; source: CopySource }[] = [];
   for (const s of sources) {
     const k = hexKey(s.hex);
     if (seen.has(k)) continue;
     seen.add(k);
-    tiles.push(s.hex);
+    tiles.push({ hex: s.hex, source: s.source });
   }
 
   // Matching face-up display expansions (their face hexagon matches).
@@ -297,7 +331,7 @@ function acquirableHexagons(
     (e) => e.faceUp && matchTile(e.hex),
   );
 
-  return { tiles, expansions };
+  return { tiles, expansions, groups };
 }
 
 // ---------------------------------------------------------------------------
@@ -833,7 +867,7 @@ function applyAcquire(
   action: AcquireAction,
 ): EngineGameState {
   const p = state.players[idx];
-  const { tiles, expansions } = acquirableHexagons(state, action.select);
+  const { tiles, expansions, groups } = acquirableHexagons(state, action.select);
   if (tiles.length === 0 && expansions.length === 0) {
     throw new IllegalMoveError('acquire selection matches nothing in display');
   }
@@ -846,28 +880,55 @@ function applyAcquire(
     );
   }
 
+  // Resolve, per duplicate group, WHICH physical copy to take. Default is the
+  // canonical source (`tiles[].source`); a player `choices` entry overrides it
+  // and MUST name a source that actually holds a copy of that hexagon.
+  const sourceSame = (a: CopySource, b: CopySource): boolean =>
+    a.kind === 'loose'
+      ? b.kind === 'loose'
+      : b.kind === 'expansion' && a.expansionId === b.expansionId;
+  const chosenSource = new Map<string, CopySource>();
+  for (const t of tiles) chosenSource.set(hexKey(t.hex), t.source);
+  for (const choice of action.choices ?? []) {
+    const k = hexKey(choice.hex);
+    const legal = groups.get(k);
+    if (!legal) {
+      throw new IllegalMoveError(
+        'acquire choice names a hexagon not in this selection',
+      );
+    }
+    if (!legal.some((s) => sourceSame(s, choice.from))) {
+      throw new IllegalMoveError(
+        'acquire choice names a source that holds no copy of that hexagon',
+      );
+    }
+    chosenSource.set(k, choice.from);
+  }
+
   const next = clone(state);
   const np = next.players[idx];
 
-  // Take exactly ONE copy of each deduped hexagon out of the display. Of
-  // identical duplicates, the untaken copies REMAIN in the display (rulebook:
-  // "take only one of them"). Removal prefers the loose pool, then the
-  // expansion with the fewest tiles (matches acquirableHexagons' choice).
+  // Take exactly ONE copy of each deduped hexagon out of the display, from the
+  // resolved source. Of identical duplicates, the untaken copies REMAIN in the
+  // display (rulebook: "take only one of them"). Which source is emptied may
+  // flip a flower bed face up / trigger a refill — hence player-selectable.
   let tookFromStack = false;
-  for (const hex of tiles) {
+  for (const t of tiles) {
+    const hex = t.hex;
+    const src = chosenSource.get(hexKey(hex)) ?? t.source;
     let removed = false;
-    const li = next.displayTiles.findIndex((t) => sameHex(t, hex));
-    if (li !== -1) {
-      next.displayTiles.splice(li, 1);
-      removed = true;
-    }
-    if (!removed) {
-      const holders = next.displayExpansions
-        .filter((e) => e.tiles.some((t) => sameHex(t, hex)))
-        .sort((a, b) => a.tiles.length - b.tiles.length);
-      const holder = holders[0];
+    if (src.kind === 'loose') {
+      const li = next.displayTiles.findIndex((x) => sameHex(x, hex));
+      if (li !== -1) {
+        next.displayTiles.splice(li, 1);
+        removed = true;
+      }
+    } else {
+      const holder = next.displayExpansions.find(
+        (e) => e.id === src.expansionId && e.tiles.some((x) => sameHex(x, hex)),
+      );
       if (holder) {
-        const ti = holder.tiles.findIndex((t) => sameHex(t, hex));
+        const ti = holder.tiles.findIndex((x) => sameHex(x, hex));
         holder.tiles.splice(ti, 1);
         if (holder.onStack) tookFromStack = true;
         removed = true;
@@ -875,7 +936,9 @@ function applyAcquire(
     }
     if (!removed) throw new IllegalMoveError('acquire desync: tile not found');
   }
-  np.storage.push(...tiles.map((h) => ({ kind: 'tile' as const, hex: h })));
+  np.storage.push(
+    ...tiles.map((t) => ({ kind: 'tile' as const, hex: t.hex })),
+  );
 
   // Acquired expansions leave the display and go to expansion storage.
   const acquiredIds = new Set(expansions.map((e) => e.id));

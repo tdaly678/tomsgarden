@@ -825,6 +825,154 @@ describe('applyAction: Acquire', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Acquire — player-chosen duplicate copy (which bed gets emptied)
+// ---------------------------------------------------------------------------
+
+describe('applyAction: Acquire with player-chosen duplicate copies', () => {
+  // Two beds each hold one copy of pattern1/color1. Bed `one` has a single
+  // tile (taking it flips it face up); bed `two` has two tiles (taking from it
+  // does NOT flip). The canonical pick takes from the smaller bed (`one`).
+  const buildTwoBeds = () =>
+    makeState([makePlayer('p1'), makePlayer('p2')], {
+      displayExpansions: [
+        {
+          id: 'one',
+          hex: hx('pattern5', 'color5'),
+          spaces: 7 as const,
+          feature: 'pavilion' as const,
+          faceUp: false,
+          onStack: false,
+          tiles: [hx('pattern1', 'color1')],
+        },
+        {
+          id: 'two',
+          hex: hx('pattern6', 'color6'),
+          spaces: 7 as const,
+          feature: 'pavilion' as const,
+          faceUp: false,
+          onStack: false,
+          tiles: [hx('pattern1', 'color1'), hx('pattern2', 'color2')],
+        },
+      ],
+    });
+
+  it('default (no choices) is canonical: empties the smaller bed, flips it face up', () => {
+    const next = applyAction(buildTwoBeds(), {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'color', color: 'color1' },
+    });
+    const one = next.displayExpansions.find((e) => e.id === 'one')!;
+    const two = next.displayExpansions.find((e) => e.id === 'two')!;
+    // Canonical took from `one`: now empty + flipped face up.
+    expect(one.tiles).toEqual([]);
+    expect(one.faceUp).toBe(true);
+    // `two` keeps its copy + other tile, stays face down.
+    expect(two.tiles).toEqual([hx('pattern1', 'color1'), hx('pattern2', 'color2')]);
+    expect(two.faceUp).toBe(false);
+    expect(next.players[0].storage.length).toBe(1);
+  });
+
+  it('choosing the copy on the LARGER bed leaves the smaller bed untouched (no flip)', () => {
+    const next = applyAction(buildTwoBeds(), {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'color', color: 'color1' },
+      choices: [
+        { hex: hx('pattern1', 'color1'), from: { kind: 'expansion', expansionId: 'two' } },
+      ],
+    });
+    const one = next.displayExpansions.find((e) => e.id === 'one')!;
+    const two = next.displayExpansions.find((e) => e.id === 'two')!;
+    // `one` was NOT touched: still holds its tile, still face down.
+    expect(one.tiles).toEqual([hx('pattern1', 'color1')]);
+    expect(one.faceUp).toBe(false);
+    // `two` lost its color1 copy (kept the non-matching tile), stays face down.
+    expect(two.tiles).toEqual([hx('pattern2', 'color2')]);
+    expect(two.faceUp).toBe(false);
+    expect(next.players[0].storage.length).toBe(1);
+  });
+
+  it('the two choices yield DIFFERENT after-states (one flips a bed, the other does not)', () => {
+    const a = applyAction(buildTwoBeds(), {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'color', color: 'color1' },
+      choices: [
+        { hex: hx('pattern1', 'color1'), from: { kind: 'expansion', expansionId: 'one' } },
+      ],
+    });
+    const b = applyAction(buildTwoBeds(), {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'color', color: 'color1' },
+      choices: [
+        { hex: hx('pattern1', 'color1'), from: { kind: 'expansion', expansionId: 'two' } },
+      ],
+    });
+    const aOne = a.displayExpansions.find((e) => e.id === 'one')!;
+    const bOne = b.displayExpansions.find((e) => e.id === 'one')!;
+    expect(aOne.faceUp).toBe(true); // choosing `one` flips it
+    expect(bOne.faceUp).toBe(false); // choosing `two` does not
+    expect(a.displayExpansions).not.toEqual(b.displayExpansions);
+  });
+
+  it('prefers a loose-pool copy when chosen, leaving both beds intact', () => {
+    const state = makeState([makePlayer('p1'), makePlayer('p2')], {
+      displayTiles: [hx('pattern1', 'color1')],
+      displayExpansions: [
+        {
+          id: 'one',
+          hex: hx('pattern5', 'color5'),
+          spaces: 7 as const,
+          feature: 'pavilion' as const,
+          faceUp: false,
+          onStack: false,
+          tiles: [hx('pattern1', 'color1')],
+        },
+      ],
+    });
+    const next = applyAction(state, {
+      type: 'Acquire',
+      playerId: 'p1',
+      select: { by: 'color', color: 'color1' },
+      choices: [{ hex: hx('pattern1', 'color1'), from: { kind: 'loose' } }],
+    });
+    expect(next.displayTiles).toEqual([]);
+    const one = next.displayExpansions.find((e) => e.id === 'one')!;
+    expect(one.tiles).toEqual([hx('pattern1', 'color1')]); // untouched
+    expect(one.faceUp).toBe(false);
+  });
+
+  it('rejects a choice naming a source that holds no copy of that hexagon', () => {
+    expect(() =>
+      applyAction(buildTwoBeds(), {
+        type: 'Acquire',
+        playerId: 'p1',
+        select: { by: 'color', color: 'color1' },
+        choices: [
+          { hex: hx('pattern1', 'color1'), from: { kind: 'loose' } }, // no loose copy exists
+        ],
+      }),
+    ).toThrow(/source that holds no copy/);
+  });
+
+  it('rejects a choice naming a hexagon outside the current selection', () => {
+    expect(() =>
+      applyAction(buildTwoBeds(), {
+        type: 'Acquire',
+        playerId: 'p1',
+        select: { by: 'color', color: 'color1' },
+        choices: [
+          // color2 is not part of a color1 selection.
+          { hex: hx('pattern2', 'color2'), from: { kind: 'expansion', expansionId: 'two' } },
+        ],
+      }),
+    ).toThrow(/not in this selection/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Garden expansion lifecycle: acquire -> place / buy from supply
 // ---------------------------------------------------------------------------
 

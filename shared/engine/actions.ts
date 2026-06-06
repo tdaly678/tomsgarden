@@ -5,6 +5,27 @@
 
 import type { Axial, ColorId, Hexagon, PatternId } from './model.js';
 
+/**
+ * Where a chosen copy of a duplicated hexagon should be taken FROM. Identifies
+ * the physical source so the player controls which display location is emptied
+ * (which can flip a flower bed face up / trigger a refill).
+ */
+export type AcquireSource =
+  /** The loose display pool (`displayTiles`). */
+  | { readonly kind: 'loose' }
+  /** A specific display expansion (flower bed), by id. */
+  | { readonly kind: 'expansion'; readonly expansionId: string };
+
+/**
+ * Optional per-duplicate-group override: for the hexagon `hex`, take the copy
+ * sitting on `from` instead of the engine's canonical choice. Groups not listed
+ * fall back to the canonical pick, so this is fully additive / back-compatible.
+ */
+export interface AcquireChoice {
+  readonly hex: Hexagon;
+  readonly from: AcquireSource;
+}
+
 /** A) Acquire all display tiles/expansions showing a declared pattern OR color. */
 export interface AcquireAction {
   readonly type: 'Acquire';
@@ -12,6 +33,13 @@ export interface AcquireAction {
   readonly select:
     | { readonly by: 'pattern'; readonly pattern: PatternId }
     | { readonly by: 'color'; readonly color: ColorId };
+  /**
+   * OPTIONAL. Player-chosen physical source for one or more duplicate groups.
+   * When omitted (bots / back-compat), each group uses the canonical pick
+   * (loose pool first, then the bed with the fewest tiles). Each entry's `from`
+   * must actually hold a copy of `hex`, or the action is rejected.
+   */
+  readonly choices?: readonly AcquireChoice[];
 }
 
 /** B) Place a tile from storage at a coordinate, paying its cost. */

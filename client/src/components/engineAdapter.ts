@@ -241,6 +241,21 @@ export function decodePayment(ids: readonly string[] | undefined): EnginePayment
 export function toEngineAction(action: BoardAction): EngineAction | null {
   switch (action.type) {
     case 'DraftTiles': {
+      // Translate any player-chosen duplicate copies into engine `choices`.
+      const choices = (action.choices ?? [])
+        .map((c) => {
+          const color = colorToEngine.get(c.color);
+          const pattern = patternToEngine.get(c.pattern as BoardPatternId);
+          if (!color || !pattern) return null;
+          const from =
+            c.source.kind === 'expansion'
+              ? { kind: 'expansion' as const, expansionId: c.source.expansionId }
+              : { kind: 'loose' as const };
+          return { hex: { color, pattern }, from };
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      const choicesField = choices.length > 0 ? { choices } : {};
+
       if (action.select.by === 'color') {
         const color = colorToEngine.get(action.select.color);
         if (!color) return null;
@@ -248,6 +263,7 @@ export function toEngineAction(action: BoardAction): EngineAction | null {
           type: 'Acquire',
           playerId: action.playerId,
           select: { by: 'color', color },
+          ...choicesField,
         };
       }
       const pattern = patternToEngine.get(
@@ -258,6 +274,7 @@ export function toEngineAction(action: BoardAction): EngineAction | null {
         type: 'Acquire',
         playerId: action.playerId,
         select: { by: 'pattern', pattern },
+        ...choicesField,
       };
     }
     case 'PlaceTile': {
